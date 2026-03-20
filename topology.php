@@ -5,6 +5,7 @@
  *
  * GET Parameter:
  *   max_age  (Sekunden, default 7200)
+ *   band     "433" oder "868" – filtert auf ein Frequenzband. Ohne Angabe: alle Nodes.
  */
 
 header('Content-Type: application/json');
@@ -15,19 +16,37 @@ require_once __DIR__ . '/db_config.php';
 $maxAge = max(600, min(86400, (int)(isset($_GET['max_age']) ? $_GET['max_age'] : 7200)));
 $cutoff = time() - $maxAge;
 
+$bandFilter = null;
+if (isset($_GET['band']) && in_array($_GET['band'], array('433', '868'))) {
+    $bandFilter = $_GET['band'];
+}
+
 try {
     $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
     $db  = new PDO($dsn, DB_USER, DB_PASS, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 
     // Nodes
     $nodes = array();
-    $stmt  = $db->prepare("SELECT `call`, `position`, `last_seen` FROM rmesh_nodes WHERE `last_seen` >= :cutoff ORDER BY `call`");
-    $stmt->execute(array(':cutoff' => $cutoff));
+    $nodeParams = array(':cutoff' => $cutoff);
+    $bandWhere  = '';
+    if ($bandFilter !== null) {
+        $bandWhere = ' AND `band` = :band';
+        $nodeParams[':band'] = $bandFilter;
+    }
+
+    $stmt = $db->prepare("SELECT `call`, `position`, `last_seen`, `band`, `chip_id`, `is_afu`
+        FROM rmesh_nodes
+        WHERE `last_seen` >= :cutoff{$bandWhere}
+        ORDER BY `call`");
+    $stmt->execute($nodeParams);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $node = array(
             'call'      => $row['call'],
             'position'  => $row['position'],
             'last_seen' => (int)$row['last_seen'],
+            'band'      => $row['band'],
+            'chip_id'   => $row['chip_id'],
+            'is_afu'    => (bool)$row['is_afu'],
         );
         $pos = parsePosition($row['position']);
         if ($pos !== null) {
@@ -37,15 +56,29 @@ try {
         $nodes[] = $node;
     }
 
+    // Bekannte Calls für Ghost-Node-Erkennung und Band-Filter bei Peers/Routen
+    $knownCalls = array();
+    foreach ($nodes as $n) { $knownCalls[$n['call']] = true; }
+
     // Edges: deduplizierte direkte Peer-Verbindungen
+    // Beim Band-Filter: nur Peers von Nodes des gewählten Bands
     $edgeMap = array();
+    $peerParams = array(':cutoff' => $cutoff);
+    $peerJoin   = '';
+    $peerWhere  = '';
+    if ($bandFilter !== null) {
+        $peerJoin  = " JOIN rmesh_nodes n ON n.`call` = p.`reporter_call` AND n.`band` = :band";
+        $peerWhere = '';
+        $peerParams[':band'] = $bandFilter;
+    }
+
     $stmt = $db->prepare("
-        SELECT `reporter_call`, `peer_call`, `rssi`, `snr`, `port`, `last_seen`
-        FROM rmesh_peers
-        WHERE `last_seen` >= :cutoff AND `available` = 1
-        ORDER BY `last_seen` DESC
+        SELECT p.`reporter_call`, p.`peer_call`, p.`rssi`, p.`snr`, p.`port`, p.`last_seen`
+        FROM rmesh_peers p{$peerJoin}
+        WHERE p.`last_seen` >= :cutoff AND p.`available` = 1
+        ORDER BY p.`last_seen` DESC
     ");
-    $stmt->execute(array(':cutoff' => $cutoff));
+    $stmt->execute($peerParams);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $a = $row['reporter_call'];
         $b = $row['peer_call'];
@@ -63,36 +96,50 @@ try {
     }
 
     // Ghost-Nodes: Peers die gesehen wurden aber sich selbst nicht gemeldet haben
-    $knownCalls = array();
-    foreach ($nodes as $n) { $knownCalls[$n['call']] = true; }
+    $ghostParams = array(':cutoff' => $cutoff);
+    $ghostJoin   = '';
+    if ($bandFilter !== null) {
+        $ghostJoin = " JOIN rmesh_nodes n ON n.`call` = p.`reporter_call` AND n.`band` = :band";
+        $ghostParams[':band'] = $bandFilter;
+    }
 
     $stmt = $db->prepare("
-        SELECT peer_call, MAX(last_seen) AS last_seen
-        FROM rmesh_peers
-        WHERE last_seen >= :cutoff AND available = 1
-        GROUP BY peer_call
+        SELECT p.peer_call, MAX(p.last_seen) AS last_seen
+        FROM rmesh_peers p{$ghostJoin}
+        WHERE p.last_seen >= :cutoff AND p.available = 1
+        GROUP BY p.peer_call
     ");
-    $stmt->execute(array(':cutoff' => $cutoff));
+    $stmt->execute($ghostParams);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         if (!isset($knownCalls[$row['peer_call']])) {
             $nodes[] = array(
                 'call'      => $row['peer_call'],
                 'position'  => '',
                 'last_seen' => (int)$row['last_seen'],
+                'band'      => $bandFilter ?? 'unknown',
+                'chip_id'   => '',
+                'is_afu'    => $bandFilter !== '868',
                 'ghost'     => true,
             );
         }
     }
 
     // Route-Hints
-    $routeEdges = array();
+    $routeEdges  = array();
+    $routeParams = array(':cutoff' => $cutoff);
+    $routeJoin   = '';
+    if ($bandFilter !== null) {
+        $routeJoin = " JOIN rmesh_nodes n ON n.`call` = r.`reporter_call` AND n.`band` = :band";
+        $routeParams[':band'] = $bandFilter;
+    }
+
     $stmt = $db->prepare("
-        SELECT `reporter_call`, `src_call`, `via_call`, `hop_count`, `last_seen`
-        FROM rmesh_routes
-        WHERE `last_seen` >= :cutoff
-        ORDER BY `hop_count` ASC
+        SELECT r.`reporter_call`, r.`src_call`, r.`via_call`, r.`hop_count`, r.`last_seen`
+        FROM rmesh_routes r{$routeJoin}
+        WHERE r.`last_seen` >= :cutoff
+        ORDER BY r.`hop_count` ASC
     ");
-    $stmt->execute(array(':cutoff' => $cutoff));
+    $stmt->execute($routeParams);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $key = $row['reporter_call'] . '|' . $row['src_call'];
         $routeEdges[$key] = array(
@@ -110,6 +157,7 @@ try {
         'route_hints' => array_values($routeEdges),
         'generated'   => time(),
         'max_age'     => $maxAge,
+        'band'        => $bandFilter,
     ));
 
 } catch (Exception $e) {

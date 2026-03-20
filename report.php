@@ -5,7 +5,10 @@
  *
  * POST Body (JSON):
  * {
- *   "call":      "DN9KGB",
+ *   "call":      "DN9KGB",        // Rufzeichen (AFU) oder Nickname (Public)
+ *   "chip_id":   "A4CF12AB34CD", // ESP32 Chip-ID (EFuse MAC)
+ *   "is_afu":    true,            // true = Amateurfunk, false = Public 868 MHz
+ *   "band":      "433",           // "433" oder "868"
  *   "position":  "JN48mw",
  *   "timestamp": 1710000000,
  *   "peers": [
@@ -42,17 +45,30 @@ if (!$data || empty($data['call'])) {
     exit;
 }
 
-$call      = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($data['call'])), 0, 16));
+// is_afu: default true (Abwärtskompatibilität – bestehende 433-MHz-Nodes senden das Feld nicht)
+$is_afu = isset($data['is_afu']) ? (bool)$data['is_afu'] : true;
+$band   = (isset($data['band']) && $data['band'] === '868') ? '868' : '433';
+
+// Rufzeichen-/Nickname-Validierung je nach Netz
+if ($is_afu) {
+    // Amateurfunk: nur Großbuchstaben, Ziffern, Schrägstrich, Bindestrich
+    $call = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($data['call'])), 0, 16));
+} else {
+    // Public: alphanumerisch + Bindestrich + Unterstrich, Groß-/Kleinschreibung erlaubt
+    $call = strtoupper(substr(preg_replace('/[^A-Za-z0-9\-_]/', '', $data['call']), 0, 16));
+}
+
+if (empty($call)) {
+    http_response_code(400);
+    echo json_encode(array('error' => 'Invalid call/nickname'));
+    exit;
+}
+
+$chip_id   = isset($data['chip_id'])   ? strtoupper(substr(preg_replace('/[^A-Fa-f0-9]/', '', $data['chip_id']), 0, 20)) : '';
 $position  = isset($data['position'])  ? substr($data['position'], 0, 23) : '';
 $timestamp = isset($data['timestamp']) ? (int)$data['timestamp'] : time();
 $peers     = isset($data['peers'])     ? $data['peers']  : array();
 $routes    = isset($data['routes'])    ? $data['routes'] : array();
-
-if (empty($call)) {
-    http_response_code(400);
-    echo json_encode(array('error' => 'Invalid callsign'));
-    exit;
-}
 
 require_once __DIR__ . '/db_config.php';
 
@@ -62,11 +78,20 @@ try {
 
     // Schema anlegen (einmalig)
     $db->exec("CREATE TABLE IF NOT EXISTS rmesh_nodes (
-        `call`     VARCHAR(16)  NOT NULL,
-        `position` VARCHAR(23)  NOT NULL DEFAULT '',
-        `last_seen` INT UNSIGNED NOT NULL,
+        `call`       VARCHAR(16)        NOT NULL,
+        `position`   VARCHAR(23)        NOT NULL DEFAULT '',
+        `last_seen`  INT UNSIGNED       NOT NULL,
+        `band`       ENUM('433','868')  NOT NULL DEFAULT '433',
+        `chip_id`    VARCHAR(20)        NOT NULL DEFAULT '',
+        `is_afu`     TINYINT(1)         NOT NULL DEFAULT 1,
         PRIMARY KEY (`call`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Schema-Migration: neue Spalten bei bestehender Tabelle ergänzen
+    $db->exec("ALTER TABLE rmesh_nodes
+        ADD COLUMN IF NOT EXISTS `band`    ENUM('433','868') NOT NULL DEFAULT '433',
+        ADD COLUMN IF NOT EXISTS `chip_id` VARCHAR(20)       NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS `is_afu`  TINYINT(1)        NOT NULL DEFAULT 1");
 
     $db->exec("CREATE TABLE IF NOT EXISTS rmesh_peers (
         `reporter_call` VARCHAR(16)   NOT NULL,
@@ -91,10 +116,22 @@ try {
     $db->beginTransaction();
 
     // Node eintragen / aktualisieren
-    $stmt = $db->prepare("INSERT INTO rmesh_nodes (`call`, `position`, `last_seen`)
-        VALUES (:call, :pos, :ts)
-        ON DUPLICATE KEY UPDATE `position`=VALUES(`position`), `last_seen`=VALUES(`last_seen`)");
-    $stmt->execute(array(':call' => $call, ':pos' => $position, ':ts' => $timestamp));
+    $stmt = $db->prepare("INSERT INTO rmesh_nodes (`call`, `position`, `last_seen`, `band`, `chip_id`, `is_afu`)
+        VALUES (:call, :pos, :ts, :band, :chip_id, :is_afu)
+        ON DUPLICATE KEY UPDATE
+            `position`  = VALUES(`position`),
+            `last_seen` = VALUES(`last_seen`),
+            `band`      = VALUES(`band`),
+            `chip_id`   = VALUES(`chip_id`),
+            `is_afu`    = VALUES(`is_afu`)");
+    $stmt->execute(array(
+        ':call'    => $call,
+        ':pos'     => $position,
+        ':ts'      => $timestamp,
+        ':band'    => $band,
+        ':chip_id' => $chip_id,
+        ':is_afu'  => (int)$is_afu,
+    ));
 
     // Peers: alle als nicht verfügbar markieren, dann gemeldete eintragen
     $db->prepare("UPDATE rmesh_peers SET `available`=0 WHERE `reporter_call`=:r")
@@ -109,7 +146,11 @@ try {
 
     foreach ($peers as $peer) {
         if (empty($peer['call'])) continue;
-        $peerCall = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($peer['call'])), 0, 16));
+        if ($is_afu) {
+            $peerCall = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($peer['call'])), 0, 16));
+        } else {
+            $peerCall = strtoupper(substr(preg_replace('/[^A-Za-z0-9\-_]/', '', $peer['call']), 0, 16));
+        }
         if (empty($peerCall)) continue;
         $stmtPeer->execute(array(
             ':r'     => $call,
@@ -131,8 +172,13 @@ try {
 
     foreach ($routes as $route) {
         if (empty($route['src']) || empty($route['via'])) continue;
-        $srcCall = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($route['src'])), 0, 16));
-        $viaCall = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($route['via'])), 0, 16));
+        if ($is_afu) {
+            $srcCall = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($route['src'])), 0, 16));
+            $viaCall = strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($route['via'])), 0, 16));
+        } else {
+            $srcCall = strtoupper(substr(preg_replace('/[^A-Za-z0-9\-_]/', '', $route['src']), 0, 16));
+            $viaCall = strtoupper(substr(preg_replace('/[^A-Za-z0-9\-_]/', '', $route['via']), 0, 16));
+        }
         if (empty($srcCall) || empty($viaCall)) continue;
         $stmtRoute->execute(array(
             ':r'    => $call,

@@ -9,6 +9,16 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #e0e0e0; display: flex; flex-direction: column; height: 100dvh; }
 
+        /* ── Band-Farben als CSS-Variablen ── */
+        :root {
+            --accent:       #4ecca3;   /* 433 MHz – Amateurfunk (Teal)  */
+            --accent-dim:   #0f3460;
+        }
+        body.band-868 {
+            --accent:       #f59e0b;   /* 868 MHz – Public (Amber) */
+            --accent-dim:   #3d2a00;
+        }
+
         /* ── Einheitlicher Header ── */
         header {
             background: #0f172a;
@@ -51,6 +61,38 @@
         .github-btn svg { width: 20px; height: 20px; fill: white; flex-shrink: 0; }
 
         /* ── Info-Leiste unter dem Header ── */
+        /* ── Band-Umschalter ── */
+        #band-bar {
+            background: #0f172a;
+            border-bottom: 1px solid #1e293b;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            height: 38px;
+        }
+        .band-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 14px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: all 0.18s;
+            background: transparent;
+            color: #888;
+        }
+        .band-btn:hover { color: #ccc; background: rgba(255,255,255,0.06); }
+        .band-btn.active-433 { background: rgba(78,204,163,0.15); border-color: #4ecca3; color: #4ecca3; }
+        .band-btn.active-868 { background: rgba(245,158,11,0.15); border-color: #f59e0b; color: #f59e0b; }
+        .band-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        #band-bar .band-sep { width: 1px; height: 20px; background: #1e293b; margin: 0 4px; }
+        #band-bar .band-label { font-size: 0.75rem; color: #555; margin-right: 4px; }
+
         #map-infobar {
             background: #16213e;
             border-bottom: 1px solid #0f3460;
@@ -62,7 +104,7 @@
             font-size: 0.8rem;
             color: #888;
         }
-        #map-infobar span { color: #4ecca3; }
+        #map-infobar span { color: var(--accent); }
         #map-infobar .sep { margin: 0 8px; color: #333; }
 
         #layout { display: flex; flex: 1; overflow: hidden; }
@@ -80,7 +122,7 @@
         }
         #sidebar h2 {
             font-size: 0.85rem;
-            color: #4ecca3;
+            color: var(--accent);
             padding: 10px 12px 6px;
             border-bottom: 1px solid #0f3460;
             letter-spacing: 1px;
@@ -111,7 +153,7 @@
             border-top: 1px solid #0f3460;
             font-size: 0.75rem;
         }
-        #legend .legend-title { color: #4ecca3; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+        #legend .legend-title { color: var(--accent); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
         .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: #aaa; }
         .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
         .legend-line { width: 24px; height: 3px; flex-shrink: 0; }
@@ -119,7 +161,10 @@
         /* Leaflet popup overrides */
         .leaflet-popup-content-wrapper { background: #16213e; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 6px; }
         .leaflet-popup-tip { background: #16213e; }
-        .popup-call { font-size: 1.1rem; font-weight: bold; color: #4ecca3; margin-bottom: 6px; }
+        .popup-call { font-size: 1.1rem; font-weight: bold; color: var(--accent); margin-bottom: 6px; }
+        .popup-badge { display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+        .badge-afu    { background: rgba(78,204,163,0.2);  color: #4ecca3; border: 1px solid #4ecca3; }
+        .badge-public { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid #f59e0b; }
         .popup-row { font-size: 0.8rem; margin: 2px 0; }
         .popup-label { color: #888; }
         .popup-peers { margin-top: 6px; }
@@ -146,7 +191,7 @@
             bottom: 20px;
             right: 20px;
             z-index: 600;
-            background: #4ecca3;
+            background: var(--accent);
             color: #0f172a;
             border: none;
             border-radius: 50%;
@@ -164,6 +209,17 @@
             .nav-label { display: none; }
             .nav-btn, .github-btn { padding: 8px 10px; gap: 0; }
             .header-inner { height: 52px; }
+
+            #band-bar {
+                overflow-x: auto;
+                white-space: nowrap;
+                scrollbar-width: none;
+                height: 34px;
+                padding: 0 8px;
+            }
+            #band-bar::-webkit-scrollbar { display: none; }
+            .band-btn { padding: 3px 10px; font-size: 0.76rem; }
+            .band-label { display: none; }
 
             #map-infobar {
                 overflow-x: auto;
@@ -238,6 +294,18 @@
     </div>
 </header>
 
+<div id="band-bar">
+    <span class="band-label">Frequenzband:</span>
+    <button class="band-btn active-433" id="btn-band-433" onclick="setBand('433')">
+        <span class="band-dot" style="background:#4ecca3;"></span>
+        433 MHz &ndash; Amateurfunk
+    </button>
+    <button class="band-btn" id="btn-band-868" onclick="setBand('868')">
+        <span class="band-dot" style="background:#f59e0b;"></span>
+        868 MHz &ndash; Public
+    </button>
+</div>
+
 <div id="map-infobar">
     Nodes: <span id="hdr-nodes">–</span>
     <span class="sep">|</span>
@@ -247,20 +315,20 @@
     <span class="sep">|</span>
     Stand: <span id="hdr-time">–</span>
     <span class="sep">|</span>
-    <button onclick="loadData()" style="background:#0f3460;color:#4ecca3;border:1px solid #4ecca3;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:0.78rem;">Aktualisieren</button>
+    <button onclick="loadData()" id="btn-refresh" style="background:#0f3460;color:var(--accent);border:1px solid var(--accent);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:0.78rem;">Aktualisieren</button>
 </div>
 
 <div id="layout">
     <div id="map"></div>
 
     <div id="sidebar">
-        <h2>Alle Nodes</h2>
+        <h2 id="sidebar-title">433 MHz &ndash; Amateurfunk</h2>
         <div id="sidebar-scroll">
             <div id="node-list"></div>
         </div>
         <div id="legend">
             <div class="legend-title">Legende</div>
-            <div class="legend-row"><div class="legend-dot" style="background:#4ecca3;"></div> Node mit Koordinaten (&lt;3h)</div>
+            <div class="legend-row"><div class="legend-dot" id="legend-node-color" style="background:#4ecca3;"></div> Node mit Koordinaten (&lt;3h)</div>
             <div class="legend-row"><div class="legend-dot" style="background:#555;opacity:0.5;"></div> Node inaktiv (3h–72h)</div>
             <div class="legend-row"><div class="legend-dot" style="background:#6366f1;width:9px;height:9px;border:1px dashed #aaa;opacity:0.55;"></div> Unbekannte Relay-Node</div>
             <div class="legend-row"><div class="legend-line" style="background:#4ecca3;"></div> LoRa SNR ≥ 5 dB (gut)</div>
@@ -295,6 +363,30 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const edgeLayer   = L.layerGroup().addTo(map);
 const routeLayer  = L.layerGroup().addTo(map);
 const markerLayer = L.layerGroup().addTo(map);
+
+// ── Band-State ────────────────────────────────────────────────────────────────
+let currentBand = '433';
+const BAND_COLORS = { '433': '#4ecca3', '868': '#f59e0b' };
+
+function setBand(band) {
+    if (band === currentBand) return;
+    currentBand = band;
+    window._mapInitialized = false;  // Karte neu zoomen
+
+    // Buttons
+    document.getElementById('btn-band-433').className = 'band-btn' + (band === '433' ? ' active-433' : '');
+    document.getElementById('btn-band-868').className = 'band-btn' + (band === '868' ? ' active-868' : '');
+
+    // CSS-Variable (body-Klasse wechseln)
+    document.body.classList.toggle('band-868', band === '868');
+
+    // Legende & Sidebar-Titel
+    document.getElementById('legend-node-color').style.background = BAND_COLORS[band];
+    document.getElementById('sidebar-title').innerHTML =
+        band === '433' ? '433\u202fMHz \u2013 Amateurfunk' : '868\u202fMHz \u2013 Public';
+
+    loadData();
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let allNodes    = {};   // call -> node object (mit lat/lon ggf. berechnet)
@@ -754,7 +846,7 @@ function renderMap(data) {
         if (!hasRealPos(n)) return;
 
         const stale = nodeAge(n) === 'stale';
-        const color = stale ? '#555' : '#4ecca3';
+        const color = stale ? '#555' : BAND_COLORS[currentBand];
 
         const marker = L.marker([n.lat, n.lon], { icon: makeIcon(color), opacity: stale ? 0.5 : 1 })
             .addTo(markerLayer)
@@ -807,7 +899,15 @@ function buildPopup(n) {
     const directPeers = allEdges.filter(e => e.from === n.call || e.to === n.call);
     const routedThrough = allRoutes.filter(r => r.reporter === n.call);
 
-    let html = `<div class="popup-call">${n.call}</div>`;
+    const badge = n.is_afu === false
+        ? '<span class="popup-badge badge-public">Public 868 MHz</span>'
+        : '<span class="popup-badge badge-afu">Amateurfunk</span>';
+
+    let html = `<div class="popup-call">${n.call}${n.ghost ? '' : badge}</div>`;
+
+    if (n.chip_id) {
+        html += `<div class="popup-row"><span class="popup-label">Chip-ID:</span> <span style="font-family:monospace;font-size:0.75rem;">${n.chip_id}</span></div>`;
+    }
 
     if (n.ghost) {
         html += `<div class="popup-row"><span class="popup-label">Status:</span> <span style="color:#818cf8">Ghost-Node – nur von anderen gesehen</span></div>`;
@@ -892,7 +992,8 @@ function focusNode(call) {
 // ── Daten laden ───────────────────────────────────────────────────────────────
 function loadData() {
     document.getElementById('hdr-time').textContent = 'lade…';
-    fetch('topology.php?max_age=259200&_=' + Date.now())
+    document.getElementById('loading').style.display = '';
+    fetch(`topology.php?max_age=259200&band=${currentBand}&_=${Date.now()}`)
         .then(r => r.json())
         .then(data => renderMap(data))
         .catch(err => {
