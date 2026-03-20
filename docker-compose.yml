@@ -1,0 +1,34 @@
+services:
+  web:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-rmesh}
+      DB_USER: ${DB_USER:-rmesh}
+      DB_PASS: ${DB_PASS:?DB_PASS must be set}
+      ADMIN_PASS_HASH: ${ADMIN_PASS_HASH:?ADMIN_PASS_HASH must be set}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-rmesh}
+      MARIADB_USER: ${DB_USER:-rmesh}
+      MARIADB_PASSWORD: ${DB_PASS:?DB_PASS must be set}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db_data:
