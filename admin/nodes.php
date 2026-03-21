@@ -13,6 +13,7 @@ _ensureLastVersionCheckColumn($db);
 $maxAge = max(600, min(2592000, (int)($_GET['max_age'] ?? 86400)));
 $cutoff = time() - $maxAge;
 $search = trim($_GET['q'] ?? '');
+$band   = in_array($_GET['band'] ?? '', ['433', '868']) ? $_GET['band'] : '';
 
 $params = [':cutoff' => $cutoff];
 $where  = 'WHERE n.last_seen >= :cutoff';
@@ -20,9 +21,13 @@ if ($search !== '') {
     $where .= ' AND n.call LIKE :q';
     $params[':q'] = '%' . $search . '%';
 }
+if ($band !== '') {
+    $where .= ' AND n.band = :band';
+    $params[':band'] = $band;
+}
 
 $nodes = $db->prepare("
-    SELECT n.`call`, n.position, n.last_seen, n.last_version_check,
+    SELECT n.`call`, n.band, n.chip_id, n.position, n.last_seen, n.last_version_check,
            COUNT(DISTINCT p.peer_call) AS peer_count,
            COUNT(DISTINCT r.src_call)  AS route_count,
            ota.device, ota.version_to AS firmware
@@ -35,7 +40,7 @@ $nodes = $db->prepare("
         ORDER BY timestamp DESC LIMIT 1
     )
     $where
-    GROUP BY n.`call`, n.position, n.last_seen, ota.device, ota.version_to
+    GROUP BY n.`call`, n.band, n.chip_id, n.position, n.last_seen, ota.device, ota.version_to
     ORDER BY n.last_seen DESC
 ");
 $nodes->execute($params);
@@ -64,6 +69,13 @@ $rows = $nodes->fetchAll(PDO::FETCH_ASSOC);
                 <option value="2592000"<?= $maxAge===2592000?'selected':'' ?>>30 Tage</option>
             </select>
         </label>
+        <label>Band:
+            <select name="band" onchange="this.form.submit()">
+                <option value=""    <?= $band===''    ?'selected':'' ?>>Alle</option>
+                <option value="433" <?= $band==='433' ?'selected':'' ?>>433 MHz</option>
+                <option value="868" <?= $band==='868' ?'selected':'' ?>>868 MHz</option>
+            </select>
+        </label>
         <button type="submit" style="padding:7px 14px;background:#0f3460;color:#4ecca3;border:1px solid #4ecca3;border-radius:6px;cursor:pointer;font-size:0.875rem;">Suchen</button>
     </form>
 
@@ -72,6 +84,8 @@ $rows = $nodes->fetchAll(PDO::FETCH_ASSOC);
             <thead>
                 <tr>
                     <th>Rufzeichen</th>
+                    <th>Band</th>
+                    <th>Chip-ID</th>
                     <th>Gerät</th>
                     <th>Firmware</th>
                     <th>Position</th>
@@ -86,6 +100,11 @@ $rows = $nodes->fetchAll(PDO::FETCH_ASSOC);
                 <?php foreach ($rows as $r): ?>
                 <tr>
                     <td class="strong mono"><?= htmlspecialchars($r['call']) ?></td>
+                    <td class="mono"><?php
+                        $bc = $r['band'] === '868' ? '#f59e0b' : '#4ecca3';
+                        echo '<span style="color:' . $bc . ';font-weight:600;">' . htmlspecialchars($r['band'] ?? '—') . ' MHz</span>';
+                    ?></td>
+                    <td class="mono"><?= $r['chip_id'] !== '' ? htmlspecialchars($r['chip_id']) : '<span class="muted">—</span>' ?></td>
                     <td class="mono"><?= htmlspecialchars($r['device'] ?? '—') ?></td>
                     <td class="mono"><?= $r['firmware'] ? '<span class="badge badge-info">' . htmlspecialchars($r['firmware']) . '</span>' : '<span class="muted">—</span>' ?></td>
                     <td class="mono"><?= htmlspecialchars($r['position'] ?? '—') ?></td>
@@ -97,7 +116,7 @@ $rows = $nodes->fetchAll(PDO::FETCH_ASSOC);
                 </tr>
                 <?php endforeach; ?>
                 <?php if (empty($rows)): ?>
-                <tr><td colspan="9" style="text-align:center;color:#555;padding:20px;">Keine Nodes gefunden.</td></tr>
+                <tr><td colspan="11" style="text-align:center;color:#555;padding:20px;">Keine Nodes gefunden.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

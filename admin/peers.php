@@ -11,24 +11,30 @@ $maxAge = max(600, min(2592000, (int)($_GET['max_age'] ?? 86400)));
 $cutoff = time() - $maxAge;
 $search = trim($_GET['q'] ?? '');
 $port   = $_GET['port'] ?? '';
+$band   = in_array($_GET['band'] ?? '', ['433', '868']) ? $_GET['band'] : '';
 
 $params = [':cutoff' => $cutoff];
-$where  = 'WHERE last_seen >= :cutoff AND available = 1';
+$where  = 'WHERE p.last_seen >= :cutoff AND p.available = 1';
 if ($search !== '') {
-    $where .= ' AND (reporter_call LIKE :q OR peer_call LIKE :q2)';
+    $where .= ' AND (p.reporter_call LIKE :q OR p.peer_call LIKE :q2)';
     $params[':q']  = '%' . $search . '%';
     $params[':q2'] = '%' . $search . '%';
 }
 if ($port === '0' || $port === '1') {
-    $where .= ' AND port = :port';
+    $where .= ' AND p.port = :port';
     $params[':port'] = (int)$port;
+}
+if ($band !== '') {
+    $where .= ' AND n.band = :band';
+    $params[':band'] = $band;
 }
 
 $stmt = $db->prepare("
-    SELECT reporter_call, peer_call, rssi, snr, port, available, last_seen
-    FROM rmesh_peers
+    SELECT p.reporter_call, p.peer_call, p.rssi, p.snr, p.port, p.available, p.last_seen
+    FROM rmesh_peers p
+    LEFT JOIN rmesh_nodes n ON n.`call` = p.reporter_call
     $where
-    ORDER BY last_seen DESC
+    ORDER BY p.last_seen DESC
     LIMIT 2000
 ");
 $stmt->execute($params);
@@ -54,6 +60,13 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <option value=""  <?= $port===''  ?'selected':'' ?>>Alle</option>
                 <option value="0" <?= $port==='0' ?'selected':'' ?>>LoRa</option>
                 <option value="1" <?= $port==='1' ?'selected':'' ?>>WiFi/UDP</option>
+            </select>
+        </label>
+        <label>Band:
+            <select name="band" onchange="this.form.submit()">
+                <option value=""    <?= $band===''    ?'selected':'' ?>>Alle</option>
+                <option value="433" <?= $band==='433' ?'selected':'' ?>>433 MHz</option>
+                <option value="868" <?= $band==='868' ?'selected':'' ?>>868 MHz</option>
             </select>
         </label>
         <label>Zeitraum:

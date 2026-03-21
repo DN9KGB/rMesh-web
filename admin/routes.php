@@ -10,21 +10,27 @@ $db = get_db();
 $maxAge = max(600, min(2592000, (int)($_GET['max_age'] ?? 86400)));
 $cutoff = time() - $maxAge;
 $search = trim($_GET['q'] ?? '');
+$band   = in_array($_GET['band'] ?? '', ['433', '868']) ? $_GET['band'] : '';
 
 $params = [':cutoff' => $cutoff];
-$where  = 'WHERE last_seen >= :cutoff';
+$where  = 'WHERE r.last_seen >= :cutoff';
 if ($search !== '') {
-    $where .= ' AND (reporter_call LIKE :q OR src_call LIKE :q2 OR via_call LIKE :q3)';
+    $where .= ' AND (r.reporter_call LIKE :q OR r.src_call LIKE :q2 OR r.via_call LIKE :q3)';
     $params[':q']  = '%' . $search . '%';
     $params[':q2'] = '%' . $search . '%';
     $params[':q3'] = '%' . $search . '%';
 }
+if ($band !== '') {
+    $where .= ' AND n.band = :band';
+    $params[':band'] = $band;
+}
 
 $stmt = $db->prepare("
-    SELECT reporter_call, src_call, via_call, hop_count, last_seen
-    FROM rmesh_routes
+    SELECT r.reporter_call, r.src_call, r.via_call, r.hop_count, r.last_seen
+    FROM rmesh_routes r
+    LEFT JOIN rmesh_nodes n ON n.`call` = r.reporter_call
     $where
-    ORDER BY last_seen DESC, hop_count ASC
+    ORDER BY r.last_seen DESC, r.hop_count ASC
     LIMIT 2000
 ");
 $stmt->execute($params);
@@ -45,6 +51,13 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <form method="get" class="filter-bar">
         <input type="text" name="q" placeholder="Rufzeichen suchen…" value="<?= htmlspecialchars($search) ?>">
+        <label>Band:
+            <select name="band" onchange="this.form.submit()">
+                <option value=""    <?= $band===''    ?'selected':'' ?>>Alle</option>
+                <option value="433" <?= $band==='433' ?'selected':'' ?>>433 MHz</option>
+                <option value="868" <?= $band==='868' ?'selected':'' ?>>868 MHz</option>
+            </select>
+        </label>
         <label>Zeitraum:
             <select name="max_age" onchange="this.form.submit()">
                 <option value="3600"   <?= $maxAge===3600   ?'selected':'' ?>>1 Stunde</option>

@@ -7,20 +7,31 @@ require_auth();
 
 $db = get_db();
 $since24h = time() - 86400;
+$band = in_array($_GET['band'] ?? '', ['433', '868']) ? $_GET['band'] : '';
 
 $counts = [];
 
-$counts['nodes']  = (int)$db->query("SELECT COUNT(*) FROM rmesh_nodes WHERE last_seen >= $since24h")->fetchColumn();
-$counts['peers']  = (int)$db->query("SELECT COUNT(*) FROM rmesh_peers WHERE last_seen >= $since24h AND available=1")->fetchColumn();
-$counts['routes'] = (int)$db->query("SELECT COUNT(*) FROM rmesh_routes WHERE last_seen >= $since24h")->fetchColumn();
-$counts['logs']   = (int)$db->query("SELECT COUNT(*) FROM rmesh_ota_log")->fetchColumn();
+function dbCount(PDO $db, string $sql, array $p = []): int {
+    $s = $db->prepare($sql); $s->execute($p); return (int)$s->fetchColumn();
+}
 
-$recent = $db->query("
-    SELECT `call`, device, event, version_from, version_to, error, timestamp
-    FROM rmesh_ota_log
-    ORDER BY timestamp DESC
-    LIMIT 15
-")->fetchAll(PDO::FETCH_ASSOC);
+$bp = $band !== '' ? [':b' => $band] : [];
+$bj = $band !== '' ? "LEFT JOIN rmesh_nodes n ON n.`call` = reporter_call" : '';
+$bw = $band !== '' ? " AND n.band = :b" : '';
+
+$counts['nodes']  = dbCount($db, "SELECT COUNT(*) FROM rmesh_nodes  WHERE last_seen >= $since24h" . ($band !== '' ? " AND band = :b" : ''), $bp);
+$counts['peers']  = dbCount($db, "SELECT COUNT(*) FROM rmesh_peers p $bj WHERE p.last_seen >= $since24h AND p.available=1$bw", $bp);
+$counts['routes'] = dbCount($db, "SELECT COUNT(*) FROM rmesh_routes r $bj WHERE r.last_seen >= $since24h$bw", $bp);
+$counts['logs']   = dbCount($db, "SELECT COUNT(*) FROM rmesh_ota_log" . ($band !== '' ? " l LEFT JOIN rmesh_nodes n ON n.`call` = l.`call` WHERE n.band = :b" : ''), $bp);
+
+$recentSql = $band !== ''
+    ? "SELECT l.`call`, l.device, l.event, l.version_from, l.version_to, l.error, l.timestamp FROM rmesh_ota_log l LEFT JOIN rmesh_nodes n ON n.`call` = l.`call` WHERE n.band = :b ORDER BY l.timestamp DESC LIMIT 15"
+    : "SELECT `call`, device, event, version_from, version_to, error, timestamp FROM rmesh_ota_log ORDER BY timestamp DESC LIMIT 15";
+$recentStmt = $db->prepare($recentSql);
+$recentStmt->execute($bp);
+$recent = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$bandParam = $band !== '' ? '?band=' . $band : '';
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -35,20 +46,30 @@ $recent = $db->query("
 <div class="page">
     <h1 class="page-title">Dashboard</h1>
 
+    <form method="get" class="filter-bar" style="margin-bottom:16px;">
+        <label>Band:
+            <select name="band" onchange="this.form.submit()">
+                <option value=""    <?= $band===''    ?'selected':'' ?>>Alle</option>
+                <option value="433" <?= $band==='433' ?'selected':'' ?>>433 MHz</option>
+                <option value="868" <?= $band==='868' ?'selected':'' ?>>868 MHz</option>
+            </select>
+        </label>
+    </form>
+
     <div class="stat-grid">
-        <a href="nodes.php" class="stat-card">
+        <a href="nodes.php<?= $bandParam ?>" class="stat-card">
             <div class="stat-value"><?= $counts['nodes'] ?></div>
             <div class="stat-label">Nodes (24h)</div>
         </a>
-        <a href="peers.php" class="stat-card">
+        <a href="peers.php<?= $bandParam ?>" class="stat-card">
             <div class="stat-value"><?= $counts['peers'] ?></div>
             <div class="stat-label">Peers (24h)</div>
         </a>
-        <a href="routes.php" class="stat-card">
+        <a href="routes.php<?= $bandParam ?>" class="stat-card">
             <div class="stat-value"><?= $counts['routes'] ?></div>
             <div class="stat-label">Routen (24h)</div>
         </a>
-        <a href="logs.php" class="stat-card">
+        <a href="logs.php<?= $bandParam ?>" class="stat-card">
             <div class="stat-value"><?= $counts['logs'] ?></div>
             <div class="stat-label">OTA-Log-Einträge</div>
         </a>
@@ -96,7 +117,7 @@ $recent = $db->query("
             </tbody>
         </table>
     </div>
-    <p style="margin-top:10px;"><a href="logs.php" class="link-more">Alle Logs anzeigen →</a></p>
+    <p style="margin-top:10px;"><a href="logs.php<?= $bandParam ?>" class="link-more">Alle Logs anzeigen →</a></p>
 </div>
 </body>
 </html>

@@ -11,22 +11,29 @@ $perPage = 50;
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $search  = trim($_GET['q'] ?? '');
 $event   = trim($_GET['event'] ?? '');
+$band    = in_array($_GET['band'] ?? '', ['433', '868']) ? $_GET['band'] : '';
 
 $params = [];
 $where  = 'WHERE 1=1';
 if ($search !== '') {
-    $where .= ' AND (call LIKE :q OR device LIKE :q2 OR error LIKE :q3)';
+    $where .= ' AND (l.`call` LIKE :q OR l.device LIKE :q2 OR l.error LIKE :q3)';
     $params[':q']  = '%' . $search . '%';
     $params[':q2'] = '%' . $search . '%';
     $params[':q3'] = '%' . $search . '%';
 }
 if ($event !== '') {
-    $where .= ' AND event = :event';
+    $where .= ' AND l.event = :event';
     $params[':event'] = $event;
 }
+if ($band !== '') {
+    $where .= ' AND n.band = :band';
+    $params[':band'] = $band;
+}
+
+$joinNodes = $band !== '' ? "LEFT JOIN rmesh_nodes n ON n.`call` = l.`call`" : '';
 
 // Total count
-$countStmt = $db->prepare("SELECT COUNT(*) FROM rmesh_ota_log $where");
+$countStmt = $db->prepare("SELECT COUNT(*) FROM rmesh_ota_log l $joinNodes $where");
 $countStmt->execute($params);
 $total   = (int)$countStmt->fetchColumn();
 $pages   = max(1, (int)ceil($total / $perPage));
@@ -37,10 +44,11 @@ $params[':limit']  = $perPage;
 $params[':offset'] = $offset;
 
 $stmt = $db->prepare("
-    SELECT id, `call`, device, event, version_from, version_to, error, timestamp
-    FROM rmesh_ota_log
+    SELECT l.id, l.`call`, l.device, l.event, l.version_from, l.version_to, l.error, l.timestamp
+    FROM rmesh_ota_log l
+    $joinNodes
     $where
-    ORDER BY timestamp DESC
+    ORDER BY l.timestamp DESC
     LIMIT :limit OFFSET :offset
 ");
 // PDO needs bindValue for LIMIT/OFFSET
@@ -78,6 +86,13 @@ function buildUrl(array $extra = []): string {
 
     <form method="get" class="filter-bar">
         <input type="text" name="q" placeholder="Rufzeichen / Gerät / Fehler…" value="<?= htmlspecialchars($search) ?>">
+        <label>Band:
+            <select name="band" onchange="this.form.submit()">
+                <option value=""    <?= $band===''    ?'selected':'' ?>>Alle</option>
+                <option value="433" <?= $band==='433' ?'selected':'' ?>>433 MHz</option>
+                <option value="868" <?= $band==='868' ?'selected':'' ?>>868 MHz</option>
+            </select>
+        </label>
         <label>Ereignis:
             <select name="event" onchange="this.form.submit()">
                 <option value="">Alle</option>
