@@ -463,7 +463,6 @@
 
     <!-- ── Changelog ── -->
     <section>
-        <h2 class="section-title">Changelog</h2>
         <div class="card">
             <div id="changelog-body" class="changelog-body">
                 <p class="readme-loading">Lade Changelog von GitHub …</p>
@@ -483,9 +482,12 @@
 </footer>
 
 <script>
-const GH_RAW  = 'https://raw.githubusercontent.com/DN9KGB/rMesh/main';
+const GH_RAW = 'https://raw.githubusercontent.com/DN9KGB/rMesh/main';
+const GH_WEB_RAW = 'https://raw.githubusercontent.com/DN9KGB/rMesh-web/main';
 
-// Aktuelle Version aus GitHub Releases laden
+const FALLBACK_IMAGE = 'images/no-image.svg';
+
+// Current version from GitHub Releases
 fetch('https://api.github.com/repos/DN9KGB/rMesh/releases/latest')
     .then(r => r.ok ? r.json() : null)
     .then(data => {
@@ -517,25 +519,33 @@ fetch(`${GH_RAW}/devices.json`)
         const grid = document.getElementById('device-grid');
         devices.forEach(({ name: device, image }) => {
             const imgUrl = image
-                ? `${GH_RAW}/website/images/${image}`
-                : 'https://via.placeholder.com/250x180?text=No+Image';
+                ? `${GH_WEB_RAW}/images/${encodeURIComponent(image)}`
+                : FALLBACK_IMAGE;
+
+            const firmwareUrl = `https://github.com/DN9KGB/rMesh/releases/latest/download/${encodeURIComponent(device)}.zip`;
+
             const card = document.createElement('div');
             card.className = 'device-card';
             card.innerHTML = `
-                <img src="${imgUrl}" alt="${device}"
-                     onerror="this.src='https://via.placeholder.com/250x180?text=No+Image'">
+                <img src="${imgUrl}" alt="${device}">
                 <div class="device-name">${device}</div>
                 <div class="btn-group">
-                    <esp-web-install-button manifest="manifest.php?device=${device}">
+                    <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}">
                         <button slot="activate">Firmware installieren</button>
                         <span slot="unsupported">Browser nicht unterstützt.</span>
                     </esp-web-install-button>
                     <button class="btn-arrow" onclick="toggleDropdown(this)">&#9660;</button>
                     <div class="dropdown-menu">
-                        <a href="https://github.com/DN9KGB/rMesh/releases/latest/download/${device}.zip" download>&#8595; Firmware herunterladen</a>
+                        <a href="${firmwareUrl}" download>&#8595; Firmware herunterladen</a>
                     </div>
                 </div>
             `;
+
+            const img = card.querySelector('img');
+            img.addEventListener('error', () => {
+                img.src = FALLBACK_IMAGE;
+            });
+
             grid.appendChild(card);
         });
     })
