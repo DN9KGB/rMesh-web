@@ -77,7 +77,7 @@ $bandParam = $band !== '' ? '?band=' . $band : '';
 
     <h2 class="section-title">Letzte OTA-Ereignisse</h2>
     <div class="table-wrap">
-        <table>
+        <table data-sortable>
             <thead>
                 <tr>
                     <th>Zeit</th>
@@ -91,10 +91,10 @@ $bandParam = $band !== '' ? '?band=' . $band : '';
             <tbody>
                 <?php foreach ($recent as $r): ?>
                 <tr>
-                    <td class="mono"><?= date('d.m.y H:i', $r['timestamp']) ?></td>
+                    <td class="mono" data-sort="<?= $r['timestamp'] ?>"><?= date('d.m.y H:i', $r['timestamp']) ?></td>
                     <td class="strong"><?= htmlspecialchars($r['call']) ?></td>
                     <td><?= htmlspecialchars($r['device'] ?? '') ?></td>
-                    <td><?php
+                    <td data-sort="<?= htmlspecialchars($r['event'] ?? '') ?>"><?php
                         $ev = isset($r['event']) ? $r['event'] : '';
                         if ($ev === 'update_success')     $cls = 'badge-ok';
                         elseif ($ev === 'update_failed')  $cls = 'badge-err';
@@ -102,7 +102,7 @@ $bandParam = $band !== '' ? '?band=' . $band : '';
                         else                              $cls = 'badge-neu';
                         echo "<span class=\"badge $cls\">" . htmlspecialchars($ev) . '</span>';
                     ?></td>
-                    <td class="mono">
+                    <td class="mono" data-sort="<?= htmlspecialchars($r['version_to'] ?? $r['version_from'] ?? '') ?>">
                         <?php
                         $vf = $r['version_from'] ?? '';
                         $vt = $r['version_to']   ?? '';

@@ -657,7 +657,7 @@ function analyzeTopology(routeHints, edges, nodeMap) {
         const nIntermed = seg.segHops - 1;
 
         if (nIntermed <= 0 || !aN?.lat || !bN?.lat) {
-            resolvedSegs.push({ from: seg.from, to: seg.to, hasVirtual: false });
+            resolvedSegs.push({ from: seg.from, to: seg.to, hasVirtual: false, segHops: seg.segHops });
             return;
         }
 
@@ -680,7 +680,7 @@ function analyzeTopology(routeHints, edges, nodeMap) {
         chain.push(seg.to);
 
         for (let k = 0; k < chain.length - 1; k++) {
-            resolvedSegs.push({ from: chain[k], to: chain[k + 1], hasVirtual: true });
+            resolvedSegs.push({ from: chain[k], to: chain[k + 1], hasVirtual: true, segHops: seg.segHops });
         }
     });
 
@@ -718,7 +718,7 @@ function analyzeTopology(routeHints, edges, nodeMap) {
         const key = [from, to].sort().join('|');
         if (finalSegKeys.has(key)) return;
         finalSegKeys.add(key);
-        finalSegments.push({ from, to, hasVirtual: seg.hasVirtual });
+        finalSegments.push({ from, to, hasVirtual: seg.hasVirtual, segHops: seg.segHops });
     });
 
     const finalVNs = allVNs.filter(vn => !mergeMap[vn.call]);
@@ -802,10 +802,30 @@ function renderMap(data) {
 
     // ── Routing-Pfad-Segmente ─────────────────────────────────────────────────
     // Aufgelöste Pfadketten reporter→via1→via2→…→dst.
-    // hasVirtual=true: Segment enthält mindestens eine unbekannte Zwischen-Node.
+    // Nur für Nodes ohne direkte Peers, nur die Route mit wenigsten Hops.
+    const directNodes = new Set(edges.flatMap(e => [e.from, e.to]));
+    const directPairs = new Set(edges.flatMap(e => [`${e.from}|${e.to}`, `${e.to}|${e.from}`]));
+    // Minimale Hopzahl pro isolierter Node ermitteln
+    const minHopsPerNode = {};
+    routeSegments.forEach(seg => {
+        if (directPairs.has(`${seg.from}|${seg.to}`)) return;
+        for (const node of [seg.from, seg.to]) {
+            if (!directNodes.has(node)) {
+                if (minHopsPerNode[node] === undefined || seg.segHops < minHopsPerNode[node])
+                    minHopsPerNode[node] = seg.segHops;
+            }
+        }
+    });
     routeSegments.forEach(seg => {
         const from = allNodes[seg.from], to = allNodes[seg.to];
         if (!isDrawable(from) || !isDrawable(to)) return;
+        if (directPairs.has(`${seg.from}|${seg.to}`)) return;
+        const fromIsolated = !directNodes.has(seg.from);
+        const toIsolated   = !directNodes.has(seg.to);
+        if (!fromIsolated && !toIsolated) return;
+        const isBest = (fromIsolated && seg.segHops === minHopsPerNode[seg.from]) ||
+                       (toIsolated   && seg.segHops === minHopsPerNode[seg.to]);
+        if (!isBest) return;
         outlinedPolyline([[from.lat, from.lon], [to.lat, to.lon]], {
             color:     seg.hasVirtual ? '#a855f7' : '#6b7280',
             weight:    1.5,
@@ -885,6 +905,8 @@ function renderMap(data) {
 
         // Echte Nodes: nur mit gemeldeten Koordinaten anzeigen
         if (!hasRealPos(n)) return;
+        // Stale Nodes ohne direkte Verbindung ausblenden
+        if (nodeAge(n) === 'stale' && !directNodes.has(n.call)) return;
 
         const stale = nodeAge(n) === 'stale';
         const color = stale ? '#555' : BAND_COLORS[currentBand];

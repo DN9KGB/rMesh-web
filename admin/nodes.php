@@ -80,7 +80,7 @@ $rows = $nodes->fetchAll(PDO::FETCH_ASSOC);
     </form>
 
     <div class="table-wrap">
-        <table>
+        <table data-sortable>
             <thead>
                 <tr>
                     <th>Rufzeichen</th>
@@ -100,17 +100,17 @@ $rows = $nodes->fetchAll(PDO::FETCH_ASSOC);
                 <?php foreach ($rows as $r): ?>
                 <tr>
                     <td class="strong mono"><?= htmlspecialchars($r['call']) ?></td>
-                    <td class="mono"><?php
+                    <td class="mono" data-sort="<?= htmlspecialchars($r['band'] ?? '') ?>"><?php
                         $bc = $r['band'] === '868' ? '#f59e0b' : '#4ecca3';
                         echo '<span style="color:' . $bc . ';font-weight:600;">' . htmlspecialchars($r['band'] ?? '—') . ' MHz</span>';
                     ?></td>
                     <td class="mono"><?= $r['chip_id'] !== '' ? htmlspecialchars($r['chip_id']) : '<span class="muted">—</span>' ?></td>
                     <td class="mono"><?= htmlspecialchars($r['device'] ?? '—') ?></td>
-                    <td class="mono"><?= $r['firmware'] ? '<span class="badge badge-info">' . htmlspecialchars($r['firmware']) . '</span>' : '<span class="muted">—</span>' ?></td>
+                    <td class="mono" data-sort="<?= htmlspecialchars($r['firmware'] ?? '') ?>"><?= $r['firmware'] ? '<span class="badge badge-info">' . htmlspecialchars($r['firmware']) . '</span>' : '<span class="muted">—</span>' ?></td>
                     <td class="mono"><?= htmlspecialchars($r['position'] ?? '—') ?></td>
-                    <td class="mono"><?= date('d.m.Y H:i:s', $r['last_seen']) ?></td>
-                    <td class="muted"><?= timeAgo($r['last_seen']) ?></td>
-                    <td class="muted"><?= $r['last_version_check'] ? timeAgo((int)$r['last_version_check']) : '<span class="muted">—</span>' ?></td>
+                    <td class="mono" data-sort="<?= $r['last_seen'] ?>"><?= date('d.m.Y H:i:s', $r['last_seen']) ?></td>
+                    <td class="muted" data-sort="<?= $r['last_seen'] ?>"><?= timeAgo($r['last_seen']) ?></td>
+                    <td class="muted" data-sort="<?= $r['last_version_check'] ?? 0 ?>"><?= $r['last_version_check'] ? timeAgo((int)$r['last_version_check']) : '<span class="muted">—</span>' ?></td>
                     <td><?= $r['peer_count'] ?></td>
                     <td><?= $r['route_count'] ?></td>
                 </tr>

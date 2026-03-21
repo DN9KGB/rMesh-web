@@ -68,4 +68,38 @@
     .link-more:hover { color:#38bdf8; }
     .pill-lora { display:inline-block; padding:1px 7px; border-radius:12px; font-size:0.72rem; background:#4ecca320; color:#4ecca3; }
     .pill-wifi { display:inline-block; padding:1px 7px; border-radius:12px; font-size:0.72rem; background:#a78bfa20; color:#a78bfa; }
+
+    /* ── Sortable table headers ── */
+    thead th { cursor:pointer; user-select:none; }
+    thead th:hover { color:#e0e0e0; background:#1a2a50; }
+    thead th.sort-asc::after  { content:' ▲'; font-size:0.65em; opacity:.8; }
+    thead th.sort-desc::after { content:' ▼'; font-size:0.65em; opacity:.8; }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('table[data-sortable]').forEach(table => {
+        const headers = table.querySelectorAll('thead th');
+        let sortCol = -1, sortDir = 1;
+        headers.forEach((th, i) => {
+            th.addEventListener('click', () => {
+                if (sortCol === i) sortDir = -sortDir;
+                else { sortCol = i; sortDir = 1; }
+                headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                rows.sort((a, b) => {
+                    const ac = a.cells[i], bc = b.cells[i];
+                    if (!ac || !bc) return 0;
+                    const av = ac.dataset.sort !== undefined ? ac.dataset.sort : ac.textContent.trim();
+                    const bv = bc.dataset.sort !== undefined ? bc.dataset.sort : bc.textContent.trim();
+                    const an = parseFloat(av), bn = parseFloat(bv);
+                    if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+                    return av.localeCompare(bv, 'de') * sortDir;
+                });
+                rows.forEach(r => tbody.appendChild(r));
+            });
+        });
+    });
+});
+</script>

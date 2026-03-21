@@ -70,7 +70,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </form>
 
     <div class="table-wrap">
-        <table>
+        <table data-sortable>
             <thead>
                 <tr>
                     <th>Berichtende Node</th>
@@ -87,13 +87,13 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <td class="strong mono"><?= htmlspecialchars($r['reporter_call']) ?></td>
                     <td class="mono"><?= htmlspecialchars($r['src_call']) ?></td>
                     <td class="mono"><?= htmlspecialchars($r['via_call']) ?></td>
-                    <td><?php
+                    <td data-sort="<?= (int)$r['hop_count'] ?>"><?php
                         $h = (int)$r['hop_count'];
                         $cls = $h <= 1 ? 'badge-ok' : ($h <= 3 ? 'badge-neu' : 'badge-err');
                         echo "<span class=\"badge $cls\">$h</span>";
                     ?></td>
-                    <td class="mono"><?= date('d.m.Y H:i:s', $r['last_seen']) ?></td>
-                    <td class="muted"><?= timeAgo($r['last_seen']) ?></td>
+                    <td class="mono" data-sort="<?= $r['last_seen'] ?>"><?= date('d.m.Y H:i:s', $r['last_seen']) ?></td>
+                    <td class="muted" data-sort="<?= $r['last_seen'] ?>"><?= timeAgo($r['last_seen']) ?></td>
                 </tr>
                 <?php endforeach; ?>
                 <?php if (empty($rows)): ?>

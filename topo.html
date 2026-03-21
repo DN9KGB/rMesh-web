@@ -493,8 +493,14 @@ function render(data) {
     const W    = document.getElementById('graph-wrap').clientWidth;
     const H    = document.getElementById('graph-wrap').clientHeight;
 
-    // Daten filtern
-    let nodes = (data.nodes || []).filter(n => showStale || nodeAge(n) === 'fresh');
+    // Nodes mit direkten Peers (aus rohen Edges, vor Filterung)
+    const nodesWithDirectPeers = new Set((data.edges || []).flatMap(e => [e.from, e.to]));
+
+    // Daten filtern – stale Nodes ohne direkte Peers immer ausblenden
+    let nodes = (data.nodes || []).filter(n => {
+        if (nodeAge(n) === 'stale' && !nodesWithDirectPeers.has(n.call)) return false;
+        return showStale || nodeAge(n) === 'fresh';
+    });
     nodeMap = {};
     nodes.forEach(n => { nodeMap[n.call] = n; });
 
@@ -612,45 +618,29 @@ function render(data) {
             });
         });
 
-        // ── 4. Inferred Edges: hops=1 → via und src sind direkte Peers ───────
-        // Bei hops=1 ist via der einzige Relay: reporter → via → src.
-        // Damit sind via ↔ src mit Sicherheit direkte Nachbarn.
-        // Gestrichelte Linien nur zu Nodes ohne eigene direkte Peers zeichnen.
+        // ── 4+5. Route-Verbindung: nur die mit wenigsten Hops pro isolierter Node ──
+        // Für jede Node ohne direkte Peers: nur den kürzesten Weg (via) anzeigen.
         const existingEdgeKeys = new Set(edges.map(e => [e.from, e.to].sort().join('|')));
         const nodesWithPeers = new Set();
         edges.forEach(e => { nodesWithPeers.add(e.from); nodesWithPeers.add(e.to); });
 
-        const usedKeys = new Set(existingEdgeKeys);
+        const minHopsRoute = {}; // src → { hops, via }
         allRoutes.forEach(r => {
-            if (r.hops !== 1) return;
-            if (!nodeSet.has(r.via) || !nodeSet.has(r.src)) return;
-            if (nodesWithPeers.has(r.src)) return;  // src hat direkte Peers → kein Strich
-            const key = [r.via, r.src].sort().join('|');
-            if (usedKeys.has(key)) return;
-            usedKeys.add(key);
-            routeLinks.push({
-                source: r.via, target: r.src,
-                route: true, inferred: true,
-                hops: 0, via: r.src, src: r.src
-            });
-        });
-
-        // ── 5. Hops>=2: gestrichelte Verbindung via → src ────────────────────
-        // Egal wie viele unbekannte Relays dazwischen liegen — wir zeigen die
-        // Verbindung als gestrichelte Linie vom ersten bekannten Hop (via) zur
-        // Zielnode. Nur zu Nodes ohne direkte Peers.
-        const drawnKeys = new Set(usedKeys);
-        allRoutes.forEach(r => {
-            if (r.hops < 2) return;
             if (!r.via || !nodeSet.has(r.via) || !nodeSet.has(r.src)) return;
-            if (nodesWithPeers.has(r.src)) return;  // src hat direkte Peers → kein Strich
+            if (nodesWithPeers.has(r.src)) return;
             const key = [r.via, r.src].sort().join('|');
-            if (drawnKeys.has(key)) return;
-            drawnKeys.add(key);
+            if (existingEdgeKeys.has(key)) return;
+            if (!minHopsRoute[r.src] || r.hops < minHopsRoute[r.src].hops) {
+                minHopsRoute[r.src] = { hops: r.hops, via: r.via };
+            }
+        });
+        Object.entries(minHopsRoute).forEach(([src, { hops, via }]) => {
             routeLinks.push({
-                source: r.via, target: r.src,
-                route: true, inferred: false, indirect: true,
-                hops: 2, src: r.src
+                source: via, target: src,
+                route: true,
+                inferred: hops === 1,
+                indirect: hops >= 2,
+                hops, src
             });
         });
 
@@ -701,9 +691,16 @@ function render(data) {
 
     // ── SVG-Elemente ──────────────────────────────────────────────────────────
     // Routen-Kanten (gestrichelt, hinter Edges)
+    // Nur anzeigen wenn keine direkte Kante zwischen den beiden Nodes existiert.
+    const directEdgePairs = new Set(edgeLinks.flatMap(e => [`${e.source}|${e.target}`, `${e.target}|${e.source}`]));
     const routeLinkEls = root.append('g').attr('class', 'route-links')
         .selectAll('line')
-        .data(allLinks.filter(l => l.route))
+        .data(allLinks.filter(l => {
+            if (!l.route) return false;
+            const a = l.source.call || l.source;
+            const b = l.target.call || l.target;
+            return !directEdgePairs.has(`${a}|${b}`);
+        }))
         .join('line')
         .attr('class', 'link link-route')
         .attr('stroke', d => {

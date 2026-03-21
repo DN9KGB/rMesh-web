@@ -106,7 +106,7 @@ function buildUrl(array $extra = []): string {
     </form>
 
     <div class="table-wrap">
-        <table>
+        <table data-sortable>
             <thead>
                 <tr>
                     <th>#</th>
@@ -122,10 +122,10 @@ function buildUrl(array $extra = []): string {
                 <?php foreach ($rows as $r): ?>
                 <tr>
                     <td class="muted"><?= $r['id'] ?></td>
-                    <td class="mono"><?= date('d.m.Y H:i:s', $r['timestamp']) ?></td>
+                    <td class="mono" data-sort="<?= $r['timestamp'] ?>"><?= date('d.m.Y H:i:s', $r['timestamp']) ?></td>
                     <td class="strong mono"><?= htmlspecialchars($r['call']) ?></td>
                     <td class="mono"><?= htmlspecialchars($r['device'] ?? '') ?></td>
-                    <td><?php
+                    <td data-sort="<?= htmlspecialchars($r['event'] ?? '') ?>"><?php
                         $ev = isset($r['event']) ? $r['event'] : '';
                         if ($ev === 'update_success')     $cls = 'badge-ok';
                         elseif ($ev === 'update_failed')  $cls = 'badge-err';
@@ -133,7 +133,7 @@ function buildUrl(array $extra = []): string {
                         else                              $cls = 'badge-neu';
                         echo "<span class=\"badge $cls\">" . htmlspecialchars($ev) . '</span>';
                     ?></td>
-                    <td class="mono"><?php
+                    <td class="mono" data-sort="<?= htmlspecialchars($r['version_to'] ?? $r['version_from'] ?? '') ?>"><?php
                         $vf = $r['version_from'] ?? '';
                         $vt = $r['version_to'] ?? '';
                         if ($vf && $vt) echo htmlspecialchars($vf) . ' → ' . htmlspecialchars($vt);

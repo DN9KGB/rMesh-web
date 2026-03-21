@@ -81,7 +81,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </form>
 
     <div class="table-wrap">
-        <table>
+        <table data-sortable>
             <thead>
                 <tr>
                     <th>Berichtende Node</th>
@@ -99,11 +99,11 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <td class="strong mono"><?= htmlspecialchars($r['reporter_call']) ?></td>
                     <td class="mono"><?= htmlspecialchars($r['peer_call']) ?></td>
                     <td class="mono <?= (float)$r['rssi'] >= -70 ? 'badge-ok' : ((float)$r['rssi'] >= -90 ? 'badge-neu' : 'badge-err') ?>"
-                        style="padding:8px 12px;"><?= number_format((float)$r['rssi'], 1) ?></td>
-                    <td class="mono"><?= number_format((float)$r['snr'], 1) ?></td>
-                    <td><?= (int)$r['port'] === 0 ? '<span class="pill-lora">LoRa</span>' : '<span class="pill-wifi">WiFi/UDP</span>' ?></td>
-                    <td class="mono"><?= date('d.m.Y H:i:s', $r['last_seen']) ?></td>
-                    <td class="muted"><?= timeAgo($r['last_seen']) ?></td>
+                        data-sort="<?= $r['rssi'] ?>" style="padding:8px 12px;"><?= number_format((float)$r['rssi'], 1) ?></td>
+                    <td class="mono" data-sort="<?= $r['snr'] ?>"><?= number_format((float)$r['snr'], 1) ?></td>
+                    <td data-sort="<?= $r['port'] ?>"><?= (int)$r['port'] === 0 ? '<span class="pill-lora">LoRa</span>' : '<span class="pill-wifi">WiFi/UDP</span>' ?></td>
+                    <td class="mono" data-sort="<?= $r['last_seen'] ?>"><?= date('d.m.Y H:i:s', $r['last_seen']) ?></td>
+                    <td class="muted" data-sort="<?= $r['last_seen'] ?>"><?= timeAgo($r['last_seen']) ?></td>
                 </tr>
                 <?php endforeach; ?>
                 <?php if (empty($rows)): ?>
