@@ -438,6 +438,19 @@ function deterministicOffset(call, range = 0.08) {
     return [dlat, dlon];
 }
 
+// Polyline mit dunklem Outline für bessere Sichtbarkeit auf Karten
+function outlinedPolyline(latlngs, opts, layer) {
+    // Breiter dunkler Hintergrund-Strich
+    L.polyline(latlngs, {
+        color: '#000', weight: (opts.weight || 2) + 3,
+        opacity: (opts.opacity || 0.85) * 0.45,
+        dashArray: opts.dashArray || null,
+        interactive: false,  // Tooltip nur auf der Hauptlinie
+    }).addTo(layer);
+    // Eigentliche farbige Linie
+    return L.polyline(latlngs, opts).addTo(layer);
+}
+
 // Marker-Icons
 function makeIcon(color) {
     return L.divIcon({
@@ -774,12 +787,12 @@ function renderMap(data) {
     inferredEdges.forEach(ie => {
         const from = allNodes[ie.from], to = allNodes[ie.to];
         if (!hasRealPos(from) || !hasRealPos(to)) return;
-        L.polyline([[from.lat, from.lon], [to.lat, to.lon]], {
+        outlinedPolyline([[from.lat, from.lon], [to.lat, to.lon]], {
             color:     '#38bdf8',
             weight:    1.5,
             dashArray: ie.confidence === 'high' ? '4,4' : '2,7',
             opacity:   ie.confidence === 'high' ? 0.5 : 0.3
-        }).addTo(routeLayer)
+        }, routeLayer)
          .bindTooltip(
             `Verbindung (inferiert): ${ie.from} ↔ ${ie.to}<br>` +
             `<small>${ie.confidence === 'high' ? 'Schluss aus hops=2-Route' : 'via-Peer-Korrelation'}</small>`,
@@ -793,12 +806,12 @@ function renderMap(data) {
     routeSegments.forEach(seg => {
         const from = allNodes[seg.from], to = allNodes[seg.to];
         if (!isDrawable(from) || !isDrawable(to)) return;
-        L.polyline([[from.lat, from.lon], [to.lat, to.lon]], {
+        outlinedPolyline([[from.lat, from.lon], [to.lat, to.lon]], {
             color:     seg.hasVirtual ? '#a855f7' : '#6b7280',
             weight:    1.5,
             dashArray: seg.hasVirtual ? '3,5' : '5,6',
             opacity:   seg.hasVirtual ? 0.5 : 0.65
-        }).addTo(routeLayer)
+        }, routeLayer)
          .bindTooltip(
             seg.hasVirtual
                 ? `Route-Segment via unbekannte Relay-Node`
@@ -817,9 +830,9 @@ function renderMap(data) {
         const color  = edgeStale ? '#444' : (e.port === 0 ? snrColor(e.snr) : '#a78bfa');
         const weight = e.port === 0 ? 2 : 1.5;
 
-        L.polyline([[from.lat, from.lon], [to.lat, to.lon]], {
+        outlinedPolyline([[from.lat, from.lon], [to.lat, to.lon]], {
             color, weight, opacity: edgeStale ? 0.3 : 0.85
-        }).addTo(edgeLayer)
+        }, edgeLayer)
          .bindTooltip(
             `${e.from} ↔ ${e.to}<br>` +
             `RSSI: ${e.rssi.toFixed(1)} dBm &nbsp;|&nbsp; SNR: ${e.snr.toFixed(1)} dB<br>` +
@@ -830,6 +843,34 @@ function renderMap(data) {
 
     // ── Marker – nur Nodes mit echten (gemeldeten) Koordinaten ───────────────
     const bounds = [];
+
+    // Gruppiere nahe Nodes um Tooltip-Überlappungen zu vermeiden.
+    // Runde auf ~110m Gitterzelle (3 Dezimalstellen ≈ 0.001°).
+    const posGroups = {};  // "rlat,rlon" → index counter
+    function posKey(lat, lon) {
+        return `${lat.toFixed(3)},${lon.toFixed(3)}`;
+    }
+
+    // Fächer-Layout: Richtung + Pixel-Offset, wächst mit Index
+    function tooltipFan(idx) {
+        const dirs = [
+            { direction: 'top',    base: [0, -10] },
+            { direction: 'bottom', base: [0,  10] },
+            { direction: 'right',  base: [10, 0]  },
+            { direction: 'left',   base: [-10, 0] },
+        ];
+        const slot = dirs[idx % dirs.length];
+        const ring = Math.floor(idx / dirs.length);  // 0, 1, 2, …
+        const extra = ring * 16;  // zusätzlicher Abstand pro Ring
+        return {
+            direction: slot.direction,
+            offset: [
+                slot.base[0] + (slot.base[0] !== 0 ? Math.sign(slot.base[0]) * extra : 0),
+                slot.base[1] + (slot.base[1] !== 0 ? Math.sign(slot.base[1]) * extra : 0),
+            ]
+        };
+    }
+
     nodes.forEach(n => {
         // Nur anzeigen wenn echte Position vorhanden (kein Schätzwert, kein Ghost)
         // Virtuelle Nodes: kleiner Punkt ohne Callsign-Label
@@ -848,14 +889,19 @@ function renderMap(data) {
         const stale = nodeAge(n) === 'stale';
         const color = stale ? '#555' : BAND_COLORS[currentBand];
 
+        const pk = posKey(n.lat, n.lon);
+        const idx = posGroups[pk] || 0;
+        posGroups[pk] = idx + 1;
+        const fan = tooltipFan(idx);
+
         const marker = L.marker([n.lat, n.lon], { icon: makeIcon(color), opacity: stale ? 0.5 : 1 })
             .addTo(markerLayer)
             .bindPopup(() => buildPopup(n), { minWidth: 180 });
 
         marker.bindTooltip(n.call, {
             permanent: true,
-            direction: 'top',
-            offset: [0, -8],
+            direction: fan.direction,
+            offset: fan.offset,
             className: stale ? 'tooltip-stale' : ''
         });
         markers[n.call] = marker;
