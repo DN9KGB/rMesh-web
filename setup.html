@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rMesh – Node Konfiguration</title>
+
+    <style>
+        :root {
+            --blue:      #0078ff;
+            --blue-dark: #005fcc;
+            --bg:        #f0f2f5;
+            --card:      #ffffff;
+            --text:      #1a1a2e;
+            --muted:     #6b7280;
+            --border:    #e5e7eb;
+            --green:     #10b981;
+            --red:       #ef4444;
+            --orange:    #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* ── Header ── */
+        header {
+            background: #0f172a;
+            color: white;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+
+        .header-logo {
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-logo img { height: 42px; }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-btn, .github-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .nav-btn:hover, .github-btn:hover { background: rgba(255,255,255,0.2); }
+        .nav-btn.active { background: rgba(255,255,255,0.2); }
+
+        .github-btn svg { width: 20px; height: 20px; fill: white; flex-shrink: 0; }
+
+        /* ── Hero ── */
+        .hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            color: white;
+            text-align: center;
+            padding: 32px 24px;
+        }
+
+        .hero h1 {
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: #38bdf8;
+            margin-bottom: 8px;
+        }
+
+        .hero p { font-size: 15px; color: #94a3b8; }
+
+        /* ── Main ── */
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 28px 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title svg { flex-shrink: 0; }
+
+        /* ── Connection Card ── */
+        .connect-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #94a3b8;
+            flex-shrink: 0;
+        }
+
+        .status-dot.connected { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+        .status-dot.error { background: var(--red); }
+
+        .status-text {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+        .btn-primary { background: var(--blue); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--blue-dark); }
+
+        .btn-success { background: var(--green); color: white; }
+        .btn-success:hover:not(:disabled) { background: #059669; }
+
+        .btn-ghost {
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover:not(:disabled) { background: #e2e8f0; }
+
+        .btn-danger { background: var(--red); color: white; }
+        .btn-danger:hover:not(:disabled) { background: #dc2626; }
+
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+        /* ── Form ── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px 24px;
+        }
+
+        .form-grid.single { grid-template-columns: 1fr; }
+        .form-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group.span-2 { grid-column: span 2; }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input, .form-select {
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text);
+            background: #f8fafc;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(0,120,255,0.1);
+            background: white;
+        }
+
+        .form-input:disabled { opacity: 0.5; background: #f1f5f9; cursor: not-allowed; }
+
+        .form-input.modified { border-color: var(--orange); background: #fffbeb; }
+        .form-input.saved { border-color: var(--green); background: #f0fdf4; }
+
+        /* ── Toggle ── */
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 0;
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .toggle input { opacity: 0; width: 0; height: 0; }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: #cbd5e1;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .toggle input:checked + .toggle-slider { background: var(--blue); }
+        .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+        .toggle-label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* ── Presets ── */
+        .preset-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .preset-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            background: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            color: var(--text);
+        }
+
+        .preset-btn:hover { border-color: var(--blue); color: var(--blue); }
+        .preset-btn.active { border-color: var(--blue); background: #eff6ff; color: var(--blue); }
+
+        /* ── Frequency display ── */
+        .freq-display {
+            background: #0f172a;
+            color: #38bdf8;
+            font-family: 'Courier New', monospace;
+            font-size: 22px;
+            font-weight: 700;
+            padding: 10px 16px;
+            border-radius: 8px;
+            letter-spacing: 1px;
+        }
+
+        /* ── UDP Peers ── */
+        .peer-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+
+        .peer-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .peer-ip {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .peer-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .peer-badge.legacy { background: #fef3c7; color: #92400e; }
+        .peer-badge.disabled { background: #fee2e2; color: #991b1b; }
+
+        .add-peer-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .add-peer-row .form-input { flex: 1; min-width: 130px; }
+
+        /* ── Serial log ── */
+        .log-wrapper {
+            margin-top: 20px;
+        }
+
+        .log-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            cursor: pointer;
+            user-select: none;
+            margin-bottom: 8px;
+        }
+
+        .log-toggle svg { transition: transform 0.2s; }
+        .log-toggle.open svg { transform: rotate(90deg); }
+
+        #serialLog {
+            background: #0f172a;
+            color: #94a3b8;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            height: 160px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            display: none;
+        }
+
+        /* ── Toast ── */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        .toast {
+            background: #1e293b;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideIn 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.success { border-left: 3px solid var(--green); }
+        .toast.error { border-left: 3px solid var(--red); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── Divider ── */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 20px 0;
+        }
+
+        /* ── Section footer ── */
+        .section-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* ── Hidden ── */
+        .hidden { display: none !important; }
+
+        /* ── Info row ── */
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--muted);
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+
+        .info-row svg { flex-shrink: 0; }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .form-grid.triple { grid-template-columns: 1fr 1fr; }
+            .form-group.span-2 { grid-column: span 1; }
+            .card { padding: 20px; }
+            .nav-label { display: none; }
+            .nav-btn, .github-btn { padding: 8px 10px; gap: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+    <div class="header-inner">
+        <a href="index.html" class="header-logo">
+            <img src="images/rmesh-logo.svg" alt="rMesh">
+        </a>
+        <nav class="header-nav">
+            <a href="index.html" class="nav-btn">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span class="nav-label">Home</span>
+            </a>
+            <a href="setup.html" class="nav-btn active">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span class="nav-label">Node Setup</span>
+            </a>
+            <a href="map.html" class="nav-btn">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+                <span class="nav-label">Netzwerkkarte</span>
+            </a>
+            <a href="topo.html" class="nav-btn">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="5" y2="17"/><line x1="12" y1="7" x2="19" y2="17"/></svg>
+                <span class="nav-label">Topologie</span>
+            </a>
+            <a href="flash.html" class="nav-btn">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                <span class="nav-label">Archiv</span>
+            </a>
+            <a href="https://github.com/dn9kgb/rmesh" target="_blank" rel="noopener" class="github-btn">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                <span class="nav-label">GitHub</span>
+            </a>
+        </nav>
+    </div>
+</header>
+
+<!-- ── Hero ── -->
+<div class="hero">
+    <h1>NODE SETUP</h1>
+    <p>Node per USB verbinden und Einstellungen direkt über die serielle Schnittstelle konfigurieren</p>
+</div>
+
+<main>
+
+    <!-- ── Serial not supported ── -->
+    <div id="noSerial" class="card hidden">
+        <div class="info-row" style="border-color:#fca5a5; background:#fff1f2; color:#991b1b;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Web Serial API wird von diesem Browser nicht unterstützt. Bitte Chrome, Edge oder Opera (Desktop) verwenden.
+        </div>
+    </div>
+
+    <!-- ── Connection Card ── -->
+    <div id="connectCard" class="card">
+        <div class="card-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0078ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2m14-8h2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/>
+                <rect x="5" y="8" width="14" height="12" rx="2"/>
+                <path d="M9 8V6a3 3 0 0 1 6 0v2"/>
+            </svg>
+            Serielle Verbindung
+        </div>
+
+        <div class="connect-row">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">Nicht verbunden</span>
+            <button class="btn btn-primary" id="btnConnect" onclick="connectSerial()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/>
+                    <polyline points="13 17 18 12 13 7"/>
+                    <line x1="18" y1="12" x2="6" y2="12"/>
+                </svg>
+                Port auswählen & verbinden
+            </button>
+            <button class="btn btn-ghost hidden" id="btnDisconnect" onclick="disconnectSerial()">Trennen</button>
+            <button class="btn btn-success hidden" id="btnLoad" onclick="loadSettings()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="white" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+                </svg>
+                Einstellungen laden
+            </button>
+            <button class="btn btn-ghost hidden" id="btnReboot" onclick="sendReboot()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Node neustarten
+            </button>
+        </div>
+
+        <div class="log-wrapper">
+            <div class="log-toggle" id="logToggle" onclick="toggleLog()">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                Serielles Log
+            </div>
+            <div id="serialLog"></div>
+        </div>
+    </div>
+
+    <!-- ── Settings (shown after load) ── -->
+    <div id="settingsContainer" class="hidden">
+
+        <!-- Node Identity -->
+        <div class="card">
+            <div class="card-title">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0078ff" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                Node-Identität
+            </div>
+            <div id="versionBadge" class="hidden" style="margin-bottom:16px;">
+                <div class="info-row">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                    </svg>
+                    Installierte Firmware: <strong id="versionText" style="margin-left:4px;"></strong>
+                    <span id="versionChannelBadge" style="margin-left:8px; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px;"></span>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="inp_callsign">Rufzeichen (Callsign)</label>
+                    <input class="form-input" id="inp_callsign" type="text" maxlength="16" placeholder="z.B. DG2NBN-1"
+                        oninput="markModified(this)" style="text-transform:uppercase">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_position">Position (Maidenhead oder lat,lon)</label>
+                    <input class="form-input" id="inp_position" type="text" maxlength="23" placeholder="z.B. JN48mw"
+                        oninput="markModified(this)">
+                </div>
+            </div>
+            <div class="section-footer">
+                <button class="btn btn-primary" onclick="saveIdentity()">Speichern</button>
+            </div>
+        </div>
+
+        <!-- Netzwerk -->
+        <div class="card">
+            <div class="card-title">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0078ff" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                    <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+                </svg>
+                Netzwerk
+            </div>
+
+            <div class="form-grid" style="margin-bottom:16px;">
+                <div class="form-group">
+                    <label class="form-label" for="inp_ssid">WLAN SSID</label>
+                    <input class="form-input" id="inp_ssid" type="text" maxlength="63" oninput="markModified(this)">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_wifipass">WLAN Passwort</label>
+                    <input class="form-input" id="inp_wifipass" type="password" maxlength="63" oninput="markModified(this)">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_ntp">NTP-Server</label>
+                    <input class="form-input" id="inp_ntp" type="text" maxlength="63" placeholder="pool.ntp.org" oninput="markModified(this)">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:32px; flex-wrap:wrap; margin-bottom:16px;">
+                <div class="toggle-group">
+                    <label class="toggle">
+                        <input type="checkbox" id="inp_apmode" onchange="toggleApMode()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">AP-Modus (eigener Hotspot)</span>
+                </div>
+                <div class="toggle-group">
+                    <label class="toggle">
+                        <input type="checkbox" id="inp_dhcp" onchange="toggleDhcp()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">DHCP aktiviert</span>
+                </div>
+            </div>
+
+            <div id="staticIpFields">
+                <div class="divider"></div>
+                <div style="margin-bottom:12px; font-size:13px; color:var(--muted); font-weight:600;">Statische IP-Konfiguration</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="inp_ip">IP-Adresse</label>
+                        <input class="form-input" id="inp_ip" type="text" placeholder="192.168.1.100" oninput="markModified(this)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="inp_netmask">Netzmaske</label>
+                        <input class="form-input" id="inp_netmask" type="text" placeholder="255.255.255.0" oninput="markModified(this)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="inp_gateway">Gateway</label>
+                        <input class="form-input" id="inp_gateway" type="text" placeholder="192.168.1.1" oninput="markModified(this)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="inp_dns">DNS-Server</label>
+                        <input class="form-input" id="inp_dns" type="text" placeholder="8.8.8.8" oninput="markModified(this)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+            <div style="margin-bottom:12px; font-size:13px; color:var(--muted); font-weight:600;">UDP-Peers</div>
+
+            <div id="peerList" class="peer-list"></div>
+
+            <div class="add-peer-row">
+                <input class="form-input" id="inp_newPeerIp" type="text" placeholder="IP-Adresse (z.B. 192.168.1.50)" maxlength="15">
+                <div class="toggle-group" style="padding:0;">
+                    <label class="toggle">
+                        <input type="checkbox" id="inp_newPeerLegacy">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label" style="font-size:13px;">Legacy</span>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="addPeer()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Peer hinzufügen
+                </button>
+            </div>
+
+            <div class="section-footer">
+                <button class="btn btn-primary" onclick="saveWifi()">Speichern</button>
+            </div>
+        </div>
+
+        <!-- LoRa -->
+        <div class="card">
+            <div class="card-title">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0078ff" stroke-width="2">
+                    <path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+                </svg>
+                LoRa-Konfiguration
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <div class="form-label" style="margin-bottom:10px;">Frequenz-Preset</div>
+                <div class="preset-row">
+                    <button class="preset-btn" id="preset433" onclick="applyPreset('433')">
+                        📡 433 MHz – Amateurfunk
+                    </button>
+                    <button class="preset-btn" id="preset868" onclick="applyPreset('868')">
+                        📡 868 MHz – Public (SRD)
+                    </button>
+                </div>
+                <div class="form-label" style="margin-bottom:6px;">Aktuelle Frequenz</div>
+                <div class="freq-display" id="freq_display">–––.––– MHz</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="inp_power">TX-Power (dBm)</label>
+                    <input class="form-input" id="inp_power" type="number" min="-9" max="27" oninput="markModified(this)">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_bw">Bandbreite (kHz)</label>
+                    <select class="form-input form-select" id="inp_bw" onchange="markModified(this)">
+                        <option value="7.8">7.8</option>
+                        <option value="10.4">10.4</option>
+                        <option value="15.6">15.6</option>
+                        <option value="20.8">20.8</option>
+                        <option value="31.25">31.25</option>
+                        <option value="41.7">41.7</option>
+                        <option value="62.5">62.5</option>
+                        <option value="125">125</option>
+                        <option value="250">250</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_sf">Spreading Factor</label>
+                    <select class="form-input form-select" id="inp_sf" onchange="markModified(this)">
+                        <option value="6">SF6</option>
+                        <option value="7">SF7</option>
+                        <option value="8">SF8</option>
+                        <option value="9">SF9</option>
+                        <option value="10">SF10</option>
+                        <option value="11">SF11</option>
+                        <option value="12">SF12</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_cr">Coding Rate</label>
+                    <select class="form-input form-select" id="inp_cr" onchange="markModified(this)">
+                        <option value="5">CR 4/5</option>
+                        <option value="6">CR 4/6</option>
+                        <option value="7">CR 4/7</option>
+                        <option value="8">CR 4/8</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_pl">Preamble Length</label>
+                    <input class="form-input" id="inp_pl" type="number" min="6" max="65535" oninput="markModified(this)">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="inp_sw">Sync Word (hex)</label>
+                    <input class="form-input" id="inp_sw" type="text" maxlength="4" placeholder="z.B. 2B" oninput="markModified(this)">
+                </div>
+            </div>
+
+            <div style="margin-top:16px;">
+                <div class="toggle-group">
+                    <label class="toggle">
+                        <input type="checkbox" id="inp_repeat" onchange="markModifiedToggle(this)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Nachrichten weiterleiten (Repeat / Relay)</span>
+                </div>
+            </div>
+
+            <div class="section-footer">
+                <button class="btn btn-primary" onclick="saveLora()">Speichern</button>
+            </div>
+        </div>
+
+        <!-- Firmware Update -->
+        <div class="card">
+            <div class="card-title">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0078ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                </svg>
+                Firmware Update
+            </div>
+
+            <div class="form-grid" style="margin-bottom:16px;">
+                <div class="form-group">
+                    <label class="form-label" for="inp_updateChannel">Update-Kanal</label>
+                    <select class="form-input form-select" id="inp_updateChannel" onchange="markModifiedToggle(this)">
+                        <option value="0">Release (stabil)</option>
+                        <option value="1">Dev (Vorabversion)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-footer" style="justify-content:flex-start; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="saveUpdateChannel()">Kanal speichern</button>
+                <button class="btn btn-ghost" onclick="triggerUpdate()">check &amp; install</button>
+                <button class="btn btn-danger" onclick="triggerForceUpdate()" title="Installiert unabhängig von der aktuellen Version">force install</button>
+            </div>
+        </div>
+
+    </div><!-- /settingsContainer -->
+
+</main>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+'use strict';
+
+let port = null;
+let writer = null;
+let reader = null;
+let readBuffer = '';
+let udpPeers = []; // [{ip, legacy, enabled}]
+
+// ── Serial Connection ────────────────────────────────────────────────────────
+
+async function connectSerial() {
+    if (!('serial' in navigator)) {
+        document.getElementById('noSerial').classList.remove('hidden');
+        return;
+    }
+    try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        setStatus('connected', 'Verbunden');
+        document.getElementById('btnConnect').classList.add('hidden');
+        document.getElementById('btnDisconnect').classList.remove('hidden');
+        document.getElementById('btnLoad').classList.remove('hidden');
+        document.getElementById('btnReboot').classList.remove('hidden');
+
+        startReading();
+        toast('Verbunden – Einstellungen werden geladen…', 'success');
+        setTimeout(loadSettings, 400);
+    } catch (e) {
+        if (e.name !== 'NotSelectedError') {
+            setStatus('error', 'Verbindungsfehler: ' + e.message);
+            toast('Verbindung fehlgeschlagen: ' + e.message, 'error');
+        }
+    }
+}
+
+async function disconnectSerial() {
+    try {
+        if (reader) { await reader.cancel(); reader = null; }
+        if (writer) { writer.releaseLock(); writer = null; }
+        if (port) { await port.close(); port = null; }
+    } catch (e) { /* ignore */ }
+
+    setStatus('', 'Nicht verbunden');
+    document.getElementById('btnConnect').classList.remove('hidden');
+    document.getElementById('btnDisconnect').classList.add('hidden');
+    document.getElementById('btnLoad').classList.add('hidden');
+    document.getElementById('btnReboot').classList.add('hidden');
+    document.getElementById('settingsContainer').classList.add('hidden');
+    toast('Verbindung getrennt');
+}
+
+// ── Reading ──────────────────────────────────────────────────────────────────
+
+async function startReading() {
+    const decoder = new TextDecoderStream();
+    port.readable.pipeTo(decoder.writable);
+    const stream = decoder.readable;
+    reader = stream.getReader();
+
+    try {
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            readBuffer += value;
+            appendLog(value);
+        }
+    } catch (e) {
+        if (e.name !== 'AbortError') appendLog('\n[Verbindung unterbrochen]\n');
+    }
+}
+
+// Send command and collect response with timeout
+async function sendAndCollect(cmd, waitMs = 800) {
+    if (!port || !port.writable) throw new Error('Nicht verbunden');
+
+    const w = port.writable.getWriter();
+    const enc = new TextEncoder();
+    await w.write(enc.encode(cmd + '\r\n'));
+    w.releaseLock();
+
+    // Collect response
+    const before = readBuffer.length;
+    await sleep(waitMs);
+    return readBuffer.slice(before);
+}
+
+async function sendCmd(cmd) {
+    if (!port || !port.writable) { toast('Nicht verbunden', 'error'); return; }
+    const w = port.writable.getWriter();
+    await w.write(new TextEncoder().encode(cmd + '\r\n'));
+    w.releaseLock();
+    appendLog('> ' + cmd + '\n');
+    await sleep(200);
+}
+
+// ── Load Settings ─────────────────────────────────────────────────────────────
+
+async function loadSettings() {
+    try {
+        const raw = await sendAndCollect('se', 1200);
+        parseSettings(raw);
+        document.getElementById('settingsContainer').classList.remove('hidden');
+        toast('Einstellungen geladen', 'success');
+    } catch (e) {
+        toast('Fehler beim Laden: ' + e.message, 'error');
+    }
+}
+
+function parseSettings(raw) {
+    const lines = raw.split(/\r?\n/);
+    udpPeers = [];
+    let parsedVersion = null;
+    let parsedChannel = null;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('WiFi SSID:'))         setVal('inp_ssid', after(trimmed, 'WiFi SSID:'));
+        else if (trimmed.startsWith('WiFi Password:')) setVal('inp_wifipass', after(trimmed, 'WiFi Password:'));
+        else if (trimmed.startsWith('AP-Mode:'))      setCheck('inp_apmode', after(trimmed,'AP-Mode:') === 'true');
+        else if (trimmed.startsWith('DHCP:'))         setCheck('inp_dhcp', after(trimmed,'DHCP:') === 'true');
+        else if (trimmed.startsWith('IP:'))           setVal('inp_ip', after(trimmed,'IP:'));
+        else if (trimmed.startsWith('NetMask:'))      setVal('inp_netmask', after(trimmed,'NetMask:'));
+        else if (trimmed.startsWith('DNS:'))          setVal('inp_dns', after(trimmed,'DNS:'));
+        else if (trimmed.startsWith('Gateway:'))      setVal('inp_gateway', after(trimmed,'Gateway:'));
+        else if (trimmed.startsWith('NTP-Server:'))   setVal('inp_ntp', after(trimmed,'NTP-Server:'));
+        else if (trimmed.startsWith('myCall:'))       setVal('inp_callsign', after(trimmed,'myCall:'));
+        else if (trimmed.startsWith('position:'))     setVal('inp_position', after(trimmed,'position:'));
+        else if (trimmed.startsWith('loraFrequency:')) {
+            const f = parseFloat(after(trimmed,'loraFrequency:'));
+            if (!isNaN(f)) updateFreqDisplay(f);
+        }
+        else if (trimmed.startsWith('loraOutputPower:')) setVal('inp_power', after(trimmed,'loraOutputPower:'));
+        else if (trimmed.startsWith('loraBandwidth:')) {
+            const bw = parseFloat(after(trimmed,'loraBandwidth:')).toString();
+            selectOption('inp_bw', bw);
+        }
+        else if (trimmed.startsWith('loraSyncWord:'))       setVal('inp_sw', after(trimmed,'loraSyncWord:').toUpperCase());
+        else if (trimmed.startsWith('loraCodingRate:'))     selectOption('inp_cr', after(trimmed,'loraCodingRate:'));
+        else if (trimmed.startsWith('loraSpreadingFactor:'))selectOption('inp_sf', after(trimmed,'loraSpreadingFactor:'));
+        else if (trimmed.startsWith('loraPreambleLength:')) setVal('inp_pl', after(trimmed,'loraPreambleLength:'));
+        else if (trimmed.startsWith('loraRepeat:'))   setCheck('inp_repeat', after(trimmed,'loraRepeat:') === '1');
+        else if (trimmed.startsWith('version:'))      parsedVersion = after(trimmed, 'version:');
+        else if (trimmed.startsWith('updateChannel:')) parsedChannel = after(trimmed, 'updateChannel:');
+        else if (trimmed.match(/^UDP.Peer \d+:/)) {
+            // "UDP Peer 1: 192.168.1.10 [legacy] [disabled]"
+            // or "UDP-Peer 1: ..."
+            const m = trimmed.match(/UDP.Peer \d+:\s*([\d.]+)(.*)/i);
+            if (m) {
+                udpPeers.push({
+                    ip: m[1].trim(),
+                    legacy: m[2].includes('legacy'),
+                    enabled: !m[2].includes('disabled')
+                });
+            }
+        }
+    }
+
+    // Version anzeigen
+    if (parsedVersion) {
+        const isDev = parsedVersion.includes('-dev');
+        document.getElementById('versionText').textContent = parsedVersion;
+        const badge = document.getElementById('versionChannelBadge');
+        badge.textContent = isDev ? 'dev' : 'release';
+        badge.style.background = isDev ? '#fef3c7' : '#dcfce7';
+        badge.style.color = isDev ? '#92400e' : '#166534';
+        document.getElementById('versionBadge').classList.remove('hidden');
+
+        // Update-Kanal: aus NVS wenn vorhanden, sonst aus Version ableiten
+        const el = document.getElementById('inp_updateChannel');
+        if (parsedChannel !== null) {
+            el.value = parsedChannel;
+        } else {
+            el.value = isDev ? '1' : '0';
+        }
+    } else if (parsedChannel !== null) {
+        document.getElementById('inp_updateChannel').value = parsedChannel;
+    }
+
+    updateDhcpVisibility();
+    renderPeerList();
+    clearModified();
+
+    // Highlight current preset
+    const freqDisplay = document.getElementById('freq_display').textContent;
+    const freq = parseFloat(freqDisplay);
+    document.getElementById('preset433').classList.toggle('active', freq > 430 && freq < 440);
+    document.getElementById('preset868').classList.toggle('active', freq > 865 && freq < 870);
+}
+
+// ── Save Functions ────────────────────────────────────────────────────────────
+
+async function saveIdentity() {
+    const call = document.getElementById('inp_callsign').value.toUpperCase().trim();
+    const pos  = document.getElementById('inp_position').value.trim();
+    if (call) await sendCmd('call ' + call);
+    if (pos)  await sendCmd('pos ' + pos);
+    clearModifiedIn(['inp_callsign','inp_position']);
+    toast('Identität gespeichert', 'success');
+}
+
+async function saveLora() {
+    await sendCmd('op '  + document.getElementById('inp_power').value);
+    await sendCmd('bw '  + document.getElementById('inp_bw').value);
+    await sendCmd('sf '  + document.getElementById('inp_sf').value);
+    await sendCmd('cr '  + document.getElementById('inp_cr').value);
+    await sendCmd('pl '  + document.getElementById('inp_pl').value);
+    const sw = document.getElementById('inp_sw').value.trim();
+    if (sw) await sendCmd('sw ' + sw);
+    await sendCmd('rep ' + (document.getElementById('inp_repeat').checked ? '1' : '0'));
+    clearModifiedIn(['inp_power','inp_bw','inp_sf','inp_cr','inp_pl','inp_sw']);
+    toast('LoRa-Einstellungen gespeichert', 'success');
+}
+
+async function saveWifi() {
+    const ssid  = document.getElementById('inp_ssid').value;
+    const pass  = document.getElementById('inp_wifipass').value;
+    const ap    = document.getElementById('inp_apmode').checked;
+    const dhcp  = document.getElementById('inp_dhcp').checked;
+    const ip    = document.getElementById('inp_ip').value.trim();
+    const nm    = document.getElementById('inp_netmask').value.trim();
+    const gw    = document.getElementById('inp_gateway').value.trim();
+    const dns   = document.getElementById('inp_dns').value.trim();
+    const ntp   = document.getElementById('inp_ntp').value.trim();
+
+    if (ssid)  await sendCmd('ss ' + ssid);
+    if (pass)  await sendCmd('pa ' + pass);
+    await sendCmd('a '  + (ap   ? '1' : '0'));
+    await sendCmd('dh ' + (dhcp ? '1' : '0'));
+    if (!dhcp) {
+        if (ip)  await sendCmd('i '  + ip);
+        if (nm)  await sendCmd('ne ' + nm);
+        if (gw)  await sendCmd('g '  + gw);
+        if (dns) await sendCmd('dn ' + dns);
+    }
+    if (ntp) await sendCmd('ntp ' + ntp);
+    clearModifiedIn(['inp_ssid','inp_wifipass','inp_ntp','inp_ip','inp_netmask','inp_gateway','inp_dns']);
+    toast('WLAN-Einstellungen gespeichert', 'success');
+}
+
+async function saveUpdateChannel() {
+    const ch = document.getElementById('inp_updateChannel').value;
+    await sendCmd('uc ' + ch);
+    toast('Update-Kanal gespeichert', 'success');
+}
+
+async function triggerUpdate() {
+    toast('OTA Update gestartet…');
+    await sendCmd('upd');
+}
+
+async function triggerForceUpdate() {
+    const ch = document.getElementById('inp_updateChannel').value;
+    const label = ch === '1' ? 'Dev' : 'Release';
+    if (!confirm('Force-Install (' + label + ') wirklich starten?\nDie Firmware wird unabhängig von der aktuellen Version installiert.')) return;
+    await sendCmd('updf ' + ch);
+    toast('Force-Install gestartet (' + label + ')…');
+}
+
+async function sendReboot() {
+    if (!confirm('Node jetzt neu starten?')) return;
+    await sendCmd('reb');
+    toast('Neustart wird ausgeführt…');
+}
+
+// ── Preset ───────────────────────────────────────────────────────────────────
+
+async function applyPreset(band) {
+    if (!confirm('Frequenz-Preset ' + band + ' MHz anwenden? Alle LoRa-Parameter werden überschrieben.')) return;
+    await sendCmd('fr ' + band);
+    await sleep(600);
+    await loadSettings();
+    toast('Preset ' + band + ' MHz gesetzt', 'success');
+}
+
+// ── UDP Peers ─────────────────────────────────────────────────────────────────
+
+function renderPeerList() {
+    const list = document.getElementById('peerList');
+    list.innerHTML = '';
+    if (udpPeers.length === 0) {
+        list.innerHTML = '<div style="font-size:13px; color:var(--muted); padding:4px 0;">Keine UDP-Peers konfiguriert.</div>';
+        return;
+    }
+    udpPeers.forEach((peer, i) => {
+        const div = document.createElement('div');
+        div.className = 'peer-item';
+        div.innerHTML = `
+            <span class="peer-ip">${peer.ip}</span>
+            ${peer.legacy ? '<span class="peer-badge legacy">Legacy</span>' : ''}
+            ${!peer.enabled ? '<span class="peer-badge disabled">Deaktiviert</span>' : ''}
+            <button class="btn btn-danger btn-sm" onclick="removePeer(${i})" title="Peer löschen">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2.5">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                    <path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+            </button>`;
+        list.appendChild(div);
+    });
+}
+
+async function addPeer() {
+    const ip     = document.getElementById('inp_newPeerIp').value.trim();
+    const legacy = document.getElementById('inp_newPeerLegacy').checked;
+    if (!ip || !isValidIP(ip)) { toast('Ungültige IP-Adresse', 'error'); return; }
+
+    const cmd = legacy ? `udp add ${ip} legacy` : `udp add ${ip}`;
+    await sendCmd(cmd);
+    udpPeers.push({ ip, legacy, enabled: true });
+    renderPeerList();
+    document.getElementById('inp_newPeerIp').value = '';
+    document.getElementById('inp_newPeerLegacy').checked = false;
+    toast('Peer hinzugefügt', 'success');
+}
+
+async function removePeer(idx) {
+    await sendCmd('udp del ' + (idx + 1));
+    udpPeers.splice(idx, 1);
+    renderPeerList();
+    toast('Peer entfernt');
+}
+
+// ── UI Helpers ────────────────────────────────────────────────────────────────
+
+function updateFreqDisplay(freq) {
+    document.getElementById('freq_display').textContent = freq.toFixed(3) + ' MHz';
+}
+
+function toggleApMode() {
+    updateDhcpVisibility();
+}
+
+function toggleDhcp() {
+    updateDhcpVisibility();
+}
+
+function updateDhcpVisibility() {
+    const dhcp = document.getElementById('inp_dhcp').checked;
+    document.getElementById('staticIpFields').style.display = dhcp ? 'none' : 'block';
+}
+
+function markModified(el) {
+    el.classList.add('modified');
+    el.classList.remove('saved');
+}
+
+function markModifiedToggle(el) {
+    // toggles don't get visual marker but we still track change
+}
+
+function clearModified() {
+    document.querySelectorAll('.form-input.modified').forEach(el => {
+        el.classList.remove('modified');
+    });
+}
+
+function clearModifiedIn(ids) {
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.classList.remove('modified'); el.classList.add('saved'); }
+    });
+}
+
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) { el.value = (val || '').trim(); el.classList.remove('modified','saved'); }
+}
+
+function setCheck(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.checked = val;
+}
+
+function selectOption(id, val) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = (val || '').trim();
+    for (const opt of el.options) {
+        if (opt.value === v || parseFloat(opt.value) === parseFloat(v)) {
+            el.value = opt.value;
+            break;
+        }
+    }
+    el.classList.remove('modified','saved');
+}
+
+function after(str, prefix) {
+    return str.slice(prefix.length).trim();
+}
+
+function isValidIP(ip) {
+    return /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) &&
+           ip.split('.').every(n => parseInt(n) <= 255);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Log ──────────────────────────────────────────────────────────────────────
+
+function appendLog(text) {
+    const log = document.getElementById('serialLog');
+    log.textContent += text;
+    log.scrollTop = log.scrollHeight;
+}
+
+function toggleLog() {
+    const log = document.getElementById('serialLog');
+    const toggle = document.getElementById('logToggle');
+    const visible = log.style.display !== 'none' && log.style.display !== '';
+    log.style.display = visible ? 'none' : 'block';
+    toggle.classList.toggle('open', !visible);
+}
+
+// ── Status ───────────────────────────────────────────────────────────────────
+
+function setStatus(state, text) {
+    const dot  = document.getElementById('statusDot');
+    const span = document.getElementById('statusText');
+    dot.className  = 'status-dot' + (state ? ' ' + state : '');
+    span.textContent = text;
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+
+function toast(msg, type = '') {
+    const container = document.getElementById('toastContainer');
+    const div = document.createElement('div');
+    div.className = 'toast' + (type ? ' ' + type : '');
+    const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+    div.textContent = icon + '  ' + msg;
+    container.appendChild(div);
+    setTimeout(() => div.remove(), 3500);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+if (!('serial' in navigator)) {
+    document.getElementById('noSerial').classList.remove('hidden');
+}
+
+updateDhcpVisibility();
+</script>
+
+</body>
+</html>
