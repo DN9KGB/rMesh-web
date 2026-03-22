@@ -2,21 +2,37 @@
 $call    = isset($_GET['call'])    ? strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($_GET['call'])), 0, 16)) : '';
 $device  = isset($_GET['device'])  ? substr($_GET['device'],  0, 64) : '';
 $version = isset($_GET['version']) ? substr($_GET['version'], 0, 32) : '';
+$channel = isset($_GET['channel']) && $_GET['channel'] === 'dev' ? 'dev' : 'release';
 
 $ctx = stream_context_create(['http' => [
     'header'  => "User-Agent: rMesh-Website\r\n",
     'timeout' => 5,
 ]]);
 
-$json = @file_get_contents('https://api.github.com/repos/DN9KGB/rMesh/releases/latest', false, $ctx);
+if ($channel === 'dev') {
+    $json = @file_get_contents('https://api.github.com/repos/DN9KGB/rMesh/releases', false, $ctx);
+    $latest = '';
+    if ($json) {
+        $releases = json_decode($json);
+        foreach ($releases as $r) {
+            if (!empty($r->prerelease)) { $latest = $r->tag_name; break; }
+        }
+    }
+    if (!$latest) {
+        // Fallback: kein Pre-release vorhanden → stable
+        $json2 = @file_get_contents('https://api.github.com/repos/DN9KGB/rMesh/releases/latest', false, $ctx);
+        $latest = $json2 ? json_decode($json2)->tag_name : '';
+    }
+} else {
+    $json = @file_get_contents('https://api.github.com/repos/DN9KGB/rMesh/releases/latest', false, $ctx);
+    $latest = $json ? json_decode($json)->tag_name : '';
+}
 
-if ($json) {
-    $latest   = json_decode($json)->tag_name;
+if ($latest) {
     $body     = json_encode(['version' => $latest]);
     $logEvent = 'version_check';
     $logError = '';
 } else {
-    $latest   = '';
     $body     = json_encode(['version' => 'unknown']);
     $logEvent = 'version_check_failed';
     $logError = 'GitHub API nicht erreichbar';

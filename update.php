@@ -2,14 +2,21 @@
 $file   = $_GET['file']   ?? '';
 $call   = isset($_GET['call'])   ? strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($_GET['call'])), 0, 16)) : '';
 $device = isset($_GET['device']) ? substr($_GET['device'], 0, 64) : '';
+$tag    = isset($_GET['tag'])    ? substr($_GET['tag'], 0, 64) : '';
 
 if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $file)) {
     http_response_code(400);
     exit;
 }
 
+if ($tag && preg_match('/^[a-zA-Z0-9_\-\.]+$/', $tag)) {
+    $redirectUrl = 'https://github.com/DN9KGB/rMesh/releases/download/' . $tag . '/' . $file;
+} else {
+    $redirectUrl = 'https://github.com/DN9KGB/rMesh/releases/latest/download/' . $file;
+}
+
 // Redirect sofort senden – kein Blocking durch DB
-header('Location: https://github.com/DN9KGB/rMesh/releases/latest/download/' . $file, true, 302);
+header('Location: ' . $redirectUrl, true, 302);
 header('Content-Length: 0');
 header('Connection: close');
 
