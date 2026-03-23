@@ -58,11 +58,8 @@ if ($tag) {
     $tag = json_decode($apiJson)->tag_name;
 }
 
-// Read device list: try local file first, fall back to GitHub
-// (open_basedir may block parent-directory access, so use @ suppression)
-$devicesJson = @file_get_contents(__DIR__ . '/../devices.json')
-            ?: @file_get_contents(__DIR__ . '/devices.json')
-            ?: @file_get_contents('https://raw.githubusercontent.com/DN9KGB/rMesh/main/devices.json', false, $ctx);
+// Read device list from the exact tag being flashed
+$devicesJson = @file_get_contents("https://raw.githubusercontent.com/DN9KGB/rMesh/$tag/devices.json", false, $ctx);
 
 if (!$devicesJson) {
     http_response_code(503);

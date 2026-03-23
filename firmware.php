@@ -41,7 +41,9 @@ if ($status >= 400) {
 }
 
 header('Content-Type: application/octet-stream');
-header('Cache-Control: public, max-age=86400'); // cache for 1 day (releases are immutable)
+// Pre-releases (tag contains '-') may be recreated with the same name → no caching
+$cacheControl = str_contains($tag, '-') ? 'no-store' : 'public, max-age=86400';
+header("Cache-Control: $cacheControl");
 
 fpassthru($fh);
 fclose($fh);
