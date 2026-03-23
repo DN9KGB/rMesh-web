@@ -16,11 +16,33 @@ $ctx = stream_context_create(['http' => [
 ]]);
 
 // Optionaler ?tag= Parameter für ältere Versionen, sonst latest
-$tag = $_GET['tag'] ?? '';
+// Optionaler ?channel=dev Parameter für Pre-Releases
+$tag     = $_GET['tag']     ?? '';
+$channel = isset($_GET['channel']) && $_GET['channel'] === 'dev' ? 'dev' : 'release';
+
 if ($tag) {
-    if (!preg_match('/^[Vv]\d+\.\d+\.\d+$/', $tag)) {
+    if (!preg_match('/^[Vv][a-zA-Z0-9._-]{1,30}$/', $tag)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid tag format']);
+        exit;
+    }
+} elseif ($channel === 'dev') {
+    $apiJson = @file_get_contents(
+        'https://api.github.com/repos/DN9KGB/rMesh/releases',
+        false, $ctx
+    );
+    if (!$apiJson) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Could not fetch release info']);
+        exit;
+    }
+    $tag = '';
+    foreach (json_decode($apiJson) as $r) {
+        if (!empty($r->prerelease)) { $tag = $r->tag_name; break; }
+    }
+    if (!$tag) {
+        http_response_code(404);
+        echo json_encode(['error' => 'No pre-release found']);
         exit;
     }
 } else {
