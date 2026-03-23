@@ -621,7 +621,7 @@
             <div class="form-grid" style="margin-bottom:16px;">
                 <div class="form-group">
                     <label class="form-label" for="inp_ssid">WLAN SSID</label>
-                    <input class="form-input" id="inp_ssid" type="text" maxlength="63" oninput="markModified(this)">
+                    <input class="form-input" id="inp_ssid" type="text" maxlength="63" oninput="markModified(this); if(this.value){ document.getElementById('inp_apmode').checked=false; }">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="inp_wifipass">WLAN Passwort</label>

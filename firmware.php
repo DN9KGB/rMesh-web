@@ -41,8 +41,9 @@ if ($status >= 400) {
 }
 
 header('Content-Type: application/octet-stream');
+header('Content-Disposition: attachment; filename="' . $file . '"');
 // Pre-releases (tag contains '-') may be recreated with the same name → no caching
-$cacheControl = str_contains($tag, '-') ? 'no-store' : 'public, max-age=86400';
+$cacheControl = strpos($tag, '-') !== false ? 'no-store' : 'public, max-age=86400';
 header("Cache-Control: $cacheControl");
 
 fpassthru($fh);
