@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" width="240" height="160">
+  <defs>
+    <linearGradient id="pcbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a6b3c"/>
+      <stop offset="100%" style="stop-color:#0f4a28"/>
+    </linearGradient>
+    <linearGradient id="moduleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2c8c56"/>
+      <stop offset="100%" style="stop-color:#1a6b3c"/>
+    </linearGradient>
+    <linearGradient id="chipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Wio-SX1262 Adapter (bottom, slightly larger) -->
+  <rect x="20" y="10" width="200" height="80" rx="5" ry="5" fill="url(#moduleGrad)" stroke="#0d3d22" stroke-width="1.5"/>
+
+  <!-- XIAO ESP32-S3 (top board, stacked) -->
+  <rect x="40" y="18" width="160" height="64" rx="4" ry="4" fill="url(#pcbGrad)" stroke="#0a2e17" stroke-width="1.5"/>
+
+  <!-- ESP32-S3 chip -->
+  <rect x="85" y="30" width="70" height="40" rx="2" ry="2" fill="url(#chipGrad)" stroke="#333" stroke-width="1"/>
+  <text x="120" y="48" font-family="monospace" font-size="7" fill="#aaa" text-anchor="middle">ESP32-S3</text>
+  <text x="120" y="58" font-family="monospace" font-size="5.5" fill="#888" text-anchor="middle">Xtensa LX7</text>
+
+  <!-- Chip pads left -->
+  <rect x="80" y="33" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="80" y="39" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="80" y="45" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="80" y="51" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="80" y="57" width="5" height="3" rx="0.5" fill="#888"/>
+  <!-- Chip pads right -->
+  <rect x="155" y="33" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="155" y="39" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="155" y="45" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="155" y="51" width="5" height="3" rx="0.5" fill="#888"/>
+  <rect x="155" y="57" width="5" height="3" rx="0.5" fill="#888"/>
+
+  <!-- USB-C connector on left -->
+  <rect x="40" y="38" width="10" height="16" rx="2" ry="2" fill="#555" stroke="#333" stroke-width="0.8"/>
+  <text x="42" y="49" font-family="monospace" font-size="4.5" fill="#ccc">USB</text>
+  <text x="42" y="55" font-family="monospace" font-size="4" fill="#aaa">-C</text>
+
+  <!-- XIAO user LED -->
+  <circle cx="175" cy="26" r="3" fill="#ffcc00" opacity="0.9"/>
+  <text x="175" y="24" font-family="monospace" font-size="4" fill="#ccc" text-anchor="middle" dy="14">LED</text>
+
+  <!-- Pin headers top row (XIAO) -->
+  <g fill="#c0a060" stroke="#8a6a30" stroke-width="0.5">
+    <rect x="56" y="18" width="4" height="6" rx="0.5"/>
+    <rect x="63" y="18" width="4" height="6" rx="0.5"/>
+    <rect x="70" y="18" width="4" height="6" rx="0.5"/>
+    <rect x="77" y="18" width="4" height="6" rx="0.5"/>
+    <rect x="161" y="18" width="4" height="6" rx="0.5"/>
+    <rect x="168" y="18" width="4" height="6" rx="0.5"/>
+    <rect x="175" y="18" width="4" height="6" rx="0.5"/>
+    <rect x="182" y="18" width="4" height="6" rx="0.5"/>
+  </g>
+  <!-- Pin headers bottom row (XIAO) -->
+  <g fill="#c0a060" stroke="#8a6a30" stroke-width="0.5">
+    <rect x="56" y="76" width="4" height="6" rx="0.5"/>
+    <rect x="63" y="76" width="4" height="6" rx="0.5"/>
+    <rect x="70" y="76" width="4" height="6" rx="0.5"/>
+    <rect x="77" y="76" width="4" height="6" rx="0.5"/>
+    <rect x="161" y="76" width="4" height="6" rx="0.5"/>
+    <rect x="168" y="76" width="4" height="6" rx="0.5"/>
+    <rect x="175" y="76" width="4" height="6" rx="0.5"/>
+    <rect x="182" y="76" width="4" height="6" rx="0.5"/>
+  </g>
+
+  <!-- SX1262 module on adapter -->
+  <rect x="75" y="93" width="90" height="32" rx="3" ry="3" fill="#1a2a1a" stroke="#2a5c3a" stroke-width="1"/>
+  <text x="120" y="106" font-family="monospace" font-size="7" fill="#7ec8a0" text-anchor="middle">SX1262</text>
+  <text x="120" y="117" font-family="monospace" font-size="5" fill="#5a9a70" text-anchor="middle">868 MHz LoRa</text>
+
+  <!-- SX1262 metal shield outline -->
+  <rect x="77" y="95" width="86" height="28" rx="2" ry="2" fill="none" stroke="#3a6a4a" stroke-width="0.8" stroke-dasharray="3,2"/>
+
+  <!-- Antenna connector (SMA/IPEX) -->
+  <circle cx="197" cy="109" r="6" fill="#888" stroke="#555" stroke-width="1"/>
+  <circle cx="197" cy="109" r="3" fill="#555"/>
+  <circle cx="197" cy="109" r="1.5" fill="#c0a060"/>
+  <text x="197" y="125" font-family="monospace" font-size="4.5" fill="#aaa" text-anchor="middle">ANT</text>
+
+  <!-- Labels -->
+  <text x="120" y="148" font-family="sans-serif" font-size="9" font-weight="bold" fill="#7ec8a0" text-anchor="middle">XIAO ESP32-S3</text>
+  <text x="120" y="158" font-family="sans-serif" font-size="7" fill="#5a9a70" text-anchor="middle">+ Wio-SX1262</text>
+</svg>

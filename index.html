@@ -288,6 +288,13 @@
             background: #f8fafc;
         }
 
+        .dev-only-notice {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 0;
+            padding: 6px 0;
+        }
+
         .dev-badge {
             display: inline-block;
             font-size: 10px;
@@ -541,12 +548,16 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Load devices.json and dev release tag in parallel, then render device cards
+// Load devices.json, dev tag and release assets in parallel, then render device cards
 Promise.all([
-    fetch(`${GH_RAW}/devices.json`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-    fetch('latest.php?channel=dev').then(r => r.ok ? r.json() : null).catch(() => null)
-]).then(([devices, devInfo]) => {
+    fetch('https://raw.githubusercontent.com/DN9KGB/rMesh/dev/devices.json').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    fetch('latest.php?channel=dev').then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch('https://api.github.com/repos/DN9KGB/rMesh/releases/latest').then(r => r.ok ? r.json() : null).catch(() => null)
+]).then(([devices, devInfo, releaseInfo]) => {
     const devTag = devInfo && devInfo.version && devInfo.version !== 'unknown' ? devInfo.version : null;
+    const releaseAssets = new Set(
+        (releaseInfo && releaseInfo.assets ? releaseInfo.assets : []).map(a => a.name)
+    );
     const grid = document.getElementById('device-grid');
 
     devices.forEach(({ name: device, image }) => {
@@ -554,33 +565,55 @@ Promise.all([
             ? `${GH_WEB_RAW}/images/${encodeURIComponent(image)}`
             : FALLBACK_IMAGE;
 
+        const hasRelease = releaseAssets.has(`${device}.zip`);
         const firmwareUrl = `https://github.com/DN9KGB/rMesh/releases/latest/download/${encodeURIComponent(device)}.zip`;
+        const devUrl = devTag ? `https://github.com/DN9KGB/rMesh/releases/download/${encodeURIComponent(devTag)}/${encodeURIComponent(device)}.zip` : '';
 
-        const devSection = devTag ? `
-            <div class="dropdown-divider"></div>
-            <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}&channel=dev">
-                <button slot="activate">&#9889; Dev installieren <span class="dev-badge">${devTag}</span></button>
-                <span slot="unsupported"></span>
-            </esp-web-install-button>
-            <a href="https://github.com/DN9KGB/rMesh/releases/download/${encodeURIComponent(devTag)}/${encodeURIComponent(device)}.zip">&#8595; Dev herunterladen <span class="dev-badge">${devTag}</span></a>
-        ` : '';
+        let installSection;
+        if (!hasRelease) {
+            // Device has no stable release — show only dev install
+            installSection = devTag ? `
+                <div class="btn-group">
+                    <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}&channel=dev">
+                        <button slot="activate">&#9889; Dev installieren <span class="dev-badge">${devTag}</span></button>
+                        <span slot="unsupported">Browser nicht unterstützt.</span>
+                    </esp-web-install-button>
+                    <button class="btn-arrow" onclick="toggleDropdown(this)">&#9660;</button>
+                    <div class="dropdown-menu">
+                        <a href="${devUrl}">&#8595; Dev herunterladen <span class="dev-badge">${devTag}</span></a>
+                    </div>
+                </div>
+            ` : `<p class="dev-only-notice">Kein Release verfügbar</p>`;
+        } else {
+            const devSection = devTag ? `
+                <div class="dropdown-divider"></div>
+                <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}&channel=dev">
+                    <button slot="activate">&#9889; Dev installieren <span class="dev-badge">${devTag}</span></button>
+                    <span slot="unsupported"></span>
+                </esp-web-install-button>
+                <a href="${devUrl}">&#8595; Dev herunterladen <span class="dev-badge">${devTag}</span></a>
+            ` : '';
+            installSection = `
+                <div class="btn-group">
+                    <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}">
+                        <button slot="activate">Firmware installieren</button>
+                        <span slot="unsupported">Browser nicht unterstützt.</span>
+                    </esp-web-install-button>
+                    <button class="btn-arrow" onclick="toggleDropdown(this)">&#9660;</button>
+                    <div class="dropdown-menu">
+                        <a href="${firmwareUrl}">&#8595; Firmware herunterladen</a>
+                        ${devSection}
+                    </div>
+                </div>
+            `;
+        }
 
         const card = document.createElement('div');
         card.className = 'device-card';
         card.innerHTML = `
             <img src="${imgUrl}" alt="${device}">
             <div class="device-name">${device}</div>
-            <div class="btn-group">
-                <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}">
-                    <button slot="activate">Firmware installieren</button>
-                    <span slot="unsupported">Browser nicht unterstützt.</span>
-                </esp-web-install-button>
-                <button class="btn-arrow" onclick="toggleDropdown(this)">&#9660;</button>
-                <div class="dropdown-menu">
-                    <a href="${firmwareUrl}">&#8595; Firmware herunterladen</a>
-                    ${devSection}
-                </div>
-            </div>
+            ${installSection}
         `;
 
         const img = card.querySelector('img');
