@@ -306,6 +306,17 @@
             letter-spacing: 0.5px;
         }
 
+        .nightly-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            background: #ede9fe;
+            color: #5b21b6;
+            padding: 1px 5px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+
         .btn-group.open .dropdown-menu { display: block; }
 
         /* ── README / Markdown ─────────────────────── */
@@ -377,6 +388,32 @@
         }
 
         /* ── Changelog ─────────────────────────────── */
+        .changelog-channel-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .changelog-channel-btn {
+            padding: 8px 20px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card);
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .changelog-channel-btn:hover { background: #f1f5f9; color: var(--text); }
+
+        .changelog-channel-btn.active {
+            background: var(--blue);
+            color: white;
+            border-color: var(--blue);
+        }
+
         .changelog-body h2 {
             font-size: 17px;
             color: #0f172a;
@@ -502,6 +539,12 @@
 
     <!-- ── Changelog ── -->
     <section>
+        <h2 class="section-title">Changelog</h2>
+        <div class="changelog-channel-selector">
+            <button class="changelog-channel-btn active" data-channel="stable">Stable</button>
+            <button class="changelog-channel-btn" data-channel="dev">Dev</button>
+            <button class="changelog-channel-btn" data-channel="nightly">Nightly</button>
+        </div>
         <div class="card">
             <div id="changelog-body" class="changelog-body">
                 <p class="readme-loading">Lade Changelog von GitHub …</p>
@@ -548,15 +591,26 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Load devices.json and all releases in parallel, then render device cards
+// Load devices.json from dev + dev-next and all releases in parallel, then render device cards
 Promise.all([
-    fetch('https://raw.githubusercontent.com/DN9KGB/rMesh/dev/devices.json').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-    fetch('https://api.github.com/repos/DN9KGB/rMesh/releases?per_page=10').then(r => r.ok ? r.json() : []).catch(() => [])
-]).then(([devices, releases]) => {
-    const devRelease     = releases.find(r => r.prerelease && !r.draft);
+    fetch('https://raw.githubusercontent.com/DN9KGB/rMesh/dev/devices.json').then(r => r.ok ? r.json() : []).catch(() => []),
+    fetch('https://raw.githubusercontent.com/DN9KGB/rMesh/dev-next/devices.json').then(r => r.ok ? r.json() : []).catch(() => []),
+    fetch('https://api.github.com/repos/DN9KGB/rMesh/releases?per_page=20').then(r => r.ok ? r.json() : []).catch(() => [])
+]).then(([devDevices, devNextDevices, releases]) => {
+    // Merge device lists: dev-next may have new devices not yet in dev
+    const seen = new Set();
+    const devices = [];
+    for (const d of devDevices) { seen.add(d.name); devices.push(d); }
+    for (const d of devNextDevices) { if (!seen.has(d.name)) devices.push(d); }
+
+    const devRelease     = releases.find(r => r.prerelease && !r.draft && !r.tag_name.startsWith('nightly-'));
     const stableRelease  = releases.find(r => !r.prerelease && !r.draft);
+    const nightlyRelease = releases.find(r => r.tag_name.startsWith('nightly-'));
     const devTag         = devRelease ? devRelease.tag_name : null;
+    const nightlyTag     = nightlyRelease ? nightlyRelease.tag_name : null;
     const releaseAssets  = new Set((stableRelease ? stableRelease.assets : []).map(a => a.name));
+    const devAssets      = new Set((devRelease ? devRelease.assets : []).map(a => a.name));
+    const nightlyAssets  = new Set((nightlyRelease ? nightlyRelease.assets : []).map(a => a.name));
     const grid = document.getElementById('device-grid');
 
     devices.forEach(({ name: device, image }) => {
@@ -564,14 +618,26 @@ Promise.all([
             ? `${GH_WEB_RAW}/images/${encodeURIComponent(image)}`
             : FALLBACK_IMAGE;
 
-        const hasRelease = releaseAssets.has(`${device}.zip`);
+        const hasRelease  = releaseAssets.has(`${device}.zip`);
+        const hasDev      = devTag && devAssets.has(`${device}.zip`);
+        const hasNightly  = nightlyTag && nightlyAssets.has(`${device}.zip`);
         const firmwareUrl = `https://github.com/DN9KGB/rMesh/releases/latest/download/${encodeURIComponent(device)}.zip`;
-        const devUrl = devTag ? `https://github.com/DN9KGB/rMesh/releases/download/${encodeURIComponent(devTag)}/${encodeURIComponent(device)}.zip` : '';
+        const devUrl      = hasDev ? `https://github.com/DN9KGB/rMesh/releases/download/${encodeURIComponent(devTag)}/${encodeURIComponent(device)}.zip` : '';
+        const nightlyUrl  = hasNightly ? `https://github.com/DN9KGB/rMesh/releases/download/${encodeURIComponent(nightlyTag)}/${encodeURIComponent(device)}.zip` : '';
+
+        const nightlySection = hasNightly ? `
+            <div class="dropdown-divider"></div>
+            <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}&tag=${encodeURIComponent(nightlyTag)}">
+                <button slot="activate">&#9889; Nightly installieren <span class="nightly-badge">${nightlyTag}</span></button>
+                <span slot="unsupported"></span>
+            </esp-web-install-button>
+            <a href="${nightlyUrl}">&#8595; Nightly herunterladen <span class="nightly-badge">${nightlyTag}</span></a>
+        ` : '';
 
         let installSection;
         if (!hasRelease) {
-            // Device has no stable release — show dev install only if a dev version exists
-            installSection = devTag ? `
+            // Device has no stable release — show best available channel
+            installSection = hasDev ? `
                 <div class="btn-group">
                     <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}&channel=dev">
                         <button slot="activate">&#9889; Dev installieren <span class="dev-badge">${devTag}</span></button>
@@ -580,11 +646,23 @@ Promise.all([
                     <button class="btn-arrow" onclick="toggleDropdown(this)">&#9660;</button>
                     <div class="dropdown-menu">
                         <a href="${devUrl}">&#8595; Dev herunterladen <span class="dev-badge">${devTag}</span></a>
+                        ${nightlySection}
+                    </div>
+                </div>
+            ` : hasNightly ? `
+                <div class="btn-group">
+                    <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}&tag=${encodeURIComponent(nightlyTag)}">
+                        <button slot="activate">&#9889; Nightly installieren <span class="nightly-badge">${nightlyTag}</span></button>
+                        <span slot="unsupported">Browser nicht unterstützt.</span>
+                    </esp-web-install-button>
+                    <button class="btn-arrow" onclick="toggleDropdown(this)">&#9660;</button>
+                    <div class="dropdown-menu">
+                        <a href="${nightlyUrl}">&#8595; Nightly herunterladen <span class="nightly-badge">${nightlyTag}</span></a>
                     </div>
                 </div>
             ` : `<p class="dev-only-notice">Kein Release verfügbar</p>`;
         } else {
-            const devSection = devTag ? `
+            const devSection = hasDev ? `
                 <div class="dropdown-divider"></div>
                 <esp-web-install-button manifest="manifest.php?device=${encodeURIComponent(device)}&channel=dev">
                     <button slot="activate">&#9889; Dev installieren <span class="dev-badge">${devTag}</span></button>
@@ -602,6 +680,7 @@ Promise.all([
                     <div class="dropdown-menu">
                         <a href="${firmwareUrl}">&#8595; Firmware herunterladen</a>
                         ${devSection}
+                        ${nightlySection}
                     </div>
                 </div>
             `;
@@ -625,19 +704,41 @@ Promise.all([
         '<p style="color:var(--muted)">Geräteliste konnte nicht von GitHub geladen werden.</p>';
 });
 
-// Load full CHANGELOG.md from GitHub and render as Markdown
-fetch(`${GH_RAW}/CHANGELOG.md`)
-    .then(r => {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-    })
-    .then(md => {
-        document.getElementById('changelog-body').innerHTML = marked.parse(md);
-    })
-    .catch(() => {
-        document.getElementById('changelog-body').innerHTML =
-            '<p style="color:var(--muted)">Changelog konnte nicht von GitHub geladen werden.</p>';
+// Changelog with channel selector
+const changelogBranches = { stable: 'main', dev: 'dev', nightly: 'dev-next' };
+const changelogCache = {};
+
+function loadChangelog(channel) {
+    const body = document.getElementById('changelog-body');
+    if (changelogCache[channel]) {
+        body.innerHTML = changelogCache[channel];
+        return;
+    }
+    body.innerHTML = '<p class="readme-loading">Lade Changelog von GitHub …</p>';
+    const branch = changelogBranches[channel];
+    fetch(`https://raw.githubusercontent.com/DN9KGB/rMesh/${branch}/CHANGELOG.md`)
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(md => {
+            changelogCache[channel] = marked.parse(md);
+            body.innerHTML = changelogCache[channel];
+        })
+        .catch(() => {
+            body.innerHTML = '<p style="color:var(--muted)">Changelog konnte nicht von GitHub geladen werden.</p>';
+        });
+}
+
+document.querySelectorAll('.changelog-channel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.changelog-channel-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadChangelog(btn.dataset.channel);
     });
+});
+
+loadChangelog('stable');
 
 // Load README from GitHub and render as Markdown
 fetch(`${GH_RAW}/README.md`)
