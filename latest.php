@@ -15,7 +15,7 @@ if ($channel === 'dev') {
     if ($json) {
         $releases = json_decode($json);
         foreach ($releases as $r) {
-            if (!empty($r->prerelease) && $r->tag_name !== 'nightly') { $latest = $r->tag_name; break; }
+            if (!empty($r->prerelease) && !str_starts_with($r->tag_name, 'nightly-')) { $latest = $r->tag_name; break; }
         }
     }
     if (!$latest) {

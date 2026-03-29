@@ -28,13 +28,31 @@ if ($channelParam === 'nightly') {
 }
 
 if ($tag) {
-    if (!preg_match('/^([Vv][a-zA-Z0-9._-]{1,30}|nightly)$/', $tag)) {
+    if (!preg_match('/^([Vv][a-zA-Z0-9._-]{1,30}|nightly-\d{4}-\d{2}-\d{2})$/', $tag)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid tag format']);
         exit;
     }
 } elseif ($channel === 'nightly') {
-    $tag = 'nightly';
+    // Find latest nightly tag from GitHub releases
+    $apiJson = @file_get_contents(
+        'https://api.github.com/repos/DN9KGB/rMesh/releases',
+        false, $ctx
+    );
+    if (!$apiJson) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Could not fetch release info']);
+        exit;
+    }
+    $tag = '';
+    foreach (json_decode($apiJson) as $r) {
+        if (str_starts_with($r->tag_name, 'nightly-')) { $tag = $r->tag_name; break; }
+    }
+    if (!$tag) {
+        http_response_code(404);
+        echo json_encode(['error' => 'No nightly release found']);
+        exit;
+    }
 } elseif ($channel === 'dev') {
     $apiJson = @file_get_contents(
         'https://api.github.com/repos/DN9KGB/rMesh/releases',
@@ -47,7 +65,7 @@ if ($tag) {
     }
     $tag = '';
     foreach (json_decode($apiJson) as $r) {
-        if (!empty($r->prerelease) && $r->tag_name !== 'nightly') { $tag = $r->tag_name; break; }
+        if (!empty($r->prerelease) && !str_starts_with($r->tag_name, 'nightly-')) { $tag = $r->tag_name; break; }
     }
     if (!$tag) {
         http_response_code(404);

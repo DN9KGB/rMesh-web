@@ -440,10 +440,10 @@ fetch('https://api.github.com/repos/DN9KGB/rMesh/releases?per_page=50')
 function filteredReleases() {
     const ch = selChannel.value;
     if (ch === 'nightly') {
-        return releases.filter(r => r.tag_name === 'nightly');
+        return releases.filter(r => r.tag_name.startsWith('nightly-'));
     }
     if (ch === 'dev') {
-        return releases.filter(r => r.prerelease && r.tag_name !== 'nightly');
+        return releases.filter(r => r.prerelease && !r.tag_name.startsWith('nightly-'));
     }
     // stable: non-prerelease, non-draft
     return releases.filter(r => !r.prerelease && !r.draft);
@@ -469,7 +469,8 @@ function updateVersionSelect() {
         const opt = document.createElement('option');
         opt.value = rel.tag_name;
         if (selChannel.value === 'nightly') {
-            opt.textContent = 'Nightly (' + (rel.published_at ? rel.published_at.substring(0, 10) : 'latest') + ')';
+            const date = rel.tag_name.replace('nightly-', '');
+            opt.textContent = date + (i === 0 ? ' (aktuell)' : '');
         } else {
             opt.textContent = rel.tag_name + (i === 0 ? ' (aktuell)' : '');
         }
