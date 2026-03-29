@@ -18,14 +18,23 @@ $ctx = stream_context_create(['http' => [
 // Optionaler ?tag= Parameter für ältere Versionen, sonst latest
 // Optionaler ?channel=dev Parameter für Pre-Releases
 $tag     = $_GET['tag']     ?? '';
-$channel = isset($_GET['channel']) && $_GET['channel'] === 'dev' ? 'dev' : 'release';
+$channelParam = $_GET['channel'] ?? '';
+if ($channelParam === 'nightly') {
+    $channel = 'nightly';
+} elseif ($channelParam === 'dev') {
+    $channel = 'dev';
+} else {
+    $channel = 'release';
+}
 
 if ($tag) {
-    if (!preg_match('/^[Vv][a-zA-Z0-9._-]{1,30}$/', $tag)) {
+    if (!preg_match('/^([Vv][a-zA-Z0-9._-]{1,30}|nightly)$/', $tag)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid tag format']);
         exit;
     }
+} elseif ($channel === 'nightly') {
+    $tag = 'nightly';
 } elseif ($channel === 'dev') {
     $apiJson = @file_get_contents(
         'https://api.github.com/repos/DN9KGB/rMesh/releases',
@@ -38,7 +47,7 @@ if ($tag) {
     }
     $tag = '';
     foreach (json_decode($apiJson) as $r) {
-        if (!empty($r->prerelease)) { $tag = $r->tag_name; break; }
+        if (!empty($r->prerelease) && $r->tag_name !== 'nightly') { $tag = $r->tag_name; break; }
     }
     if (!$tag) {
         http_response_code(404);

@@ -116,7 +116,7 @@
         /* ── Selectors ── */
         .selector-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 24px;
             margin-bottom: 32px;
         }
@@ -354,6 +354,14 @@
                 </select>
             </div>
             <div>
+                <label for="select-channel">Kanal</label>
+                <select id="select-channel">
+                    <option value="release">Stable</option>
+                    <option value="dev">Dev</option>
+                    <option value="nightly">Nightly</option>
+                </select>
+            </div>
+            <div>
                 <label for="select-version">Version</label>
                 <select id="select-version" disabled>
                     <option value="">— erst Gerät wählen —</option>
@@ -365,9 +373,7 @@
             <span class="device-preview-placeholder">Kein Gerät ausgewählt</span>
         </div>
 
-        <div class="warning" id="downgrade-warning">
-            Achtung: Du installierst eine ältere Version. Das kann zu Inkompatibilitäten führen.
-        </div>
+        <div class="warning" id="downgrade-warning"></div>
 
         <div class="flash-area">
             <div class="flash-btn-wrapper" id="flash-btn-wrapper">
@@ -399,6 +405,7 @@ let releases   = [];
 let latestTag  = '';
 
 const selDevice  = document.getElementById('select-device');
+const selChannel = document.getElementById('select-channel');
 const selVersion = document.getElementById('select-version');
 const installBtn = document.getElementById('install-btn');
 const preview    = document.getElementById('device-preview');
@@ -425,9 +432,22 @@ fetch('https://api.github.com/repos/DN9KGB/rMesh/releases?per_page=50')
     .then(r => { if (!r.ok) throw new Error(); return r.json(); })
     .then(data => {
         releases  = data;
-        latestTag = data.length ? data[0].tag_name : '';
+        const latest = data.find(r => !r.prerelease && !r.draft);
+        latestTag = latest ? latest.tag_name : '';
     })
     .catch(() => {});
+
+function filteredReleases() {
+    const ch = selChannel.value;
+    if (ch === 'nightly') {
+        return releases.filter(r => r.tag_name === 'nightly');
+    }
+    if (ch === 'dev') {
+        return releases.filter(r => r.prerelease && r.tag_name !== 'nightly');
+    }
+    // stable: non-prerelease, non-draft
+    return releases.filter(r => !r.prerelease && !r.draft);
+}
 
 function updateVersionSelect() {
     selVersion.innerHTML = '';
@@ -435,10 +455,24 @@ function updateVersionSelect() {
 
     if (!selDevice.value || !releases.length) return;
 
-    releases.forEach((rel, i) => {
-        const opt      = document.createElement('option');
-        opt.value      = rel.tag_name;
-        opt.textContent = rel.tag_name + (i === 0 ? ' (aktuell)' : '');
+    const filtered = filteredReleases();
+    if (!filtered.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '— keine Version verfügbar —';
+        selVersion.appendChild(opt);
+        updateInstallButton();
+        return;
+    }
+
+    filtered.forEach((rel, i) => {
+        const opt = document.createElement('option');
+        opt.value = rel.tag_name;
+        if (selChannel.value === 'nightly') {
+            opt.textContent = 'Nightly (' + (rel.published_at ? rel.published_at.substring(0, 10) : 'latest') + ')';
+        } else {
+            opt.textContent = rel.tag_name + (i === 0 ? ' (aktuell)' : '');
+        }
         selVersion.appendChild(opt);
     });
 
@@ -482,7 +516,16 @@ function updateInstallButton() {
     installBtn.setAttribute('manifest', manifestUrl);
     btn.disabled = false;
 
-    warning.classList.toggle('visible', latestTag && version !== latestTag);
+    const ch = selChannel.value;
+    if (ch === 'nightly') {
+        warning.textContent = 'Achtung: Nightly Builds sind instabile Entwicklungsversionen und können Fehler enthalten.';
+        warning.classList.add('visible');
+    } else if (latestTag && version !== latestTag) {
+        warning.textContent = 'Achtung: Du installierst eine ältere Version. Das kann zu Inkompatibilitäten führen.';
+        warning.classList.add('visible');
+    } else {
+        warning.classList.remove('visible');
+    }
 }
 
 selDevice.addEventListener('change', () => {
@@ -490,6 +533,7 @@ selDevice.addEventListener('change', () => {
     updateVersionSelect();
 });
 
+selChannel.addEventListener('change', updateVersionSelect);
 selVersion.addEventListener('change', updateInstallButton);
 </script>
 
