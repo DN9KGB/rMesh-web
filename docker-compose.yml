@@ -1,8 +1,18 @@
 services:
-  web:
+  php:
     build: .
-    ports:
-      - "80:80"
+    labels:
+      # HTTPS – gesamte Seite
+      - "traefik.enable=true"
+      - "traefik.http.routers.rmesh.rule=Host(`${DOMAIN:-rmesh.de}`) || Host(`www.${DOMAIN:-rmesh.de}`)"
+      - "traefik.http.routers.rmesh.entrypoints=websecure"
+      - "traefik.http.routers.rmesh.tls.certresolver=letsencrypt"
+
+      # HTTP – nur report.php und update.php (für ESP32 ohne TLS)
+      - "traefik.http.routers.rmesh-plain.rule=(Host(`${DOMAIN:-rmesh.de}`) || Host(`www.${DOMAIN:-rmesh.de}`)) && (Path(`/report.php`) || Path(`/update.php`))"
+      - "traefik.http.routers.rmesh-plain.entrypoints=web"
+
+      - "traefik.http.services.rmesh.loadbalancer.server.port=80"
     environment:
       DB_HOST: db
       DB_NAME: ${DB_NAME:-rmesh}
