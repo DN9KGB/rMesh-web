@@ -28,6 +28,17 @@ if ($channel === 'dev') {
     $latest = $json ? json_decode($json)->tag_name : '';
 }
 
+// Dirty/nightly builds dürfen niemals per Auto-Update überschrieben werden
+$isDirty = $version !== '' && (stripos($version, 'dirty') !== false || stripos($version, 'nightly') !== false || preg_match('/-b\d+$/i', trim($version)));
+if ($isDirty) {
+    $latest = $version;
+}
+
+// Gleiche Version (case-insensitive, getrimmt) → kein Update anbieten
+if ($latest && $version && strcasecmp(trim($latest), trim($version)) === 0) {
+    $latest = $version;
+}
+
 if ($latest) {
     $body     = json_encode(['version' => $latest]);
     $logEvent = 'version_check';
