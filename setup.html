@@ -618,14 +618,29 @@
                 Netzwerk
             </div>
 
+            <div style="margin-bottom:12px; font-size:13px; color:var(--muted); font-weight:600;">WLAN-Netzwerke</div>
+            <div id="wifiList" class="peer-list"></div>
+            <div class="add-peer-row" style="margin-bottom:16px;">
+                <input class="form-input" id="inp_newWifiSsid" type="text" placeholder="SSID" maxlength="63">
+                <input class="form-input" id="inp_newWifiPass" type="password" placeholder="Passwort (optional)" maxlength="63">
+                <button class="btn btn-primary btn-sm" onclick="addWifi()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Netzwerk hinzufügen
+                </button>
+            </div>
+
+            <div class="divider"></div>
+
             <div class="form-grid" style="margin-bottom:16px;">
                 <div class="form-group">
-                    <label class="form-label" for="inp_ssid">WLAN SSID</label>
-                    <input class="form-input" id="inp_ssid" type="text" maxlength="63" oninput="markModified(this); if(this.value){ document.getElementById('inp_apmode').checked=false; }">
+                    <label class="form-label" for="inp_apname">AP-Name (Hotspot-SSID)</label>
+                    <input class="form-input" id="inp_apname" type="text" maxlength="32" placeholder="rMesh" oninput="markModified(this)">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="inp_wifipass">WLAN Passwort</label>
-                    <input class="form-input" id="inp_wifipass" type="password" maxlength="63" oninput="markModified(this)">
+                    <label class="form-label" for="inp_appass">AP-Passwort (min. 8 Zeichen, leer = offen)</label>
+                    <input class="form-input" id="inp_appass" type="password" maxlength="63" placeholder="(unverändert)" oninput="markModified(this)">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="inp_ntp">NTP-Server</label>
@@ -833,6 +848,8 @@ let writer = null;
 let reader = null;
 let readBuffer = '';
 let udpPeers = []; // [{ip, legacy, enabled}]
+let wifiNets = []; // [{ssid, favorite, hasPw}]
+let apPasswordSet = false;
 
 // ── Serial Connection ────────────────────────────────────────────────────────
 
@@ -938,21 +955,34 @@ async function loadSettings() {
 function parseSettings(raw) {
     const lines = raw.split(/\r?\n/);
     udpPeers = [];
+    wifiNets = [];
+    apPasswordSet = false;
     let parsedVersion = null;
     let parsedChannel = null;
 
     for (const line of lines) {
         const trimmed = line.trim();
 
-        if (trimmed.startsWith('WiFi SSID:'))         setVal('inp_ssid', after(trimmed, 'WiFi SSID:'));
-        else if (trimmed.startsWith('WiFi Password:')) setVal('inp_wifipass', after(trimmed, 'WiFi Password:'));
-        else if (trimmed.startsWith('AP-Mode:'))      setCheck('inp_apmode', after(trimmed,'AP-Mode:') === 'true');
+        // Multi-network WiFi list: "WiFi 1: <ssid> [favorite] (pw: set)"
+        const wifiM = trimmed.match(/^WiFi\s+(\d+):\s*(.*?)\s*\(pw:\s*(set|none)\)\s*$/i);
+        if (wifiM) {
+            let ssid = wifiM[2];
+            const fav = / \[favorite\]$/.test(ssid);
+            if (fav) ssid = ssid.replace(/ \[favorite\]$/, '');
+            wifiNets.push({ ssid: ssid.trim(), favorite: fav, hasPw: wifiM[3] === 'set' });
+            continue;
+        }
+        if (/^WiFi Networks:\s*none/i.test(trimmed)) continue;
+
+        if (trimmed.startsWith('AP Mode:'))           setCheck('inp_apmode', after(trimmed,'AP Mode:') === 'true');
+        else if (trimmed.startsWith('AP Name:'))      setVal('inp_apname', after(trimmed,'AP Name:'));
+        else if (trimmed.startsWith('AP Password set:')) apPasswordSet = (after(trimmed,'AP Password set:') === 'true');
         else if (trimmed.startsWith('DHCP:'))         setCheck('inp_dhcp', after(trimmed,'DHCP:') === 'true');
         else if (trimmed.startsWith('IP:'))           setVal('inp_ip', after(trimmed,'IP:'));
-        else if (trimmed.startsWith('NetMask:'))      setVal('inp_netmask', after(trimmed,'NetMask:'));
+        else if (trimmed.startsWith('Netmask:'))      setVal('inp_netmask', after(trimmed,'Netmask:'));
         else if (trimmed.startsWith('DNS:'))          setVal('inp_dns', after(trimmed,'DNS:'));
         else if (trimmed.startsWith('Gateway:'))      setVal('inp_gateway', after(trimmed,'Gateway:'));
-        else if (trimmed.startsWith('NTP-Server:'))   setVal('inp_ntp', after(trimmed,'NTP-Server:'));
+        else if (trimmed.startsWith('NTP Server:'))   setVal('inp_ntp', after(trimmed,'NTP Server:'));
         else if (trimmed.startsWith('myCall:'))       setVal('inp_callsign', after(trimmed,'myCall:'));
         else if (trimmed.startsWith('position:'))     setVal('inp_position', after(trimmed,'position:'));
         else if (trimmed.startsWith('loraFrequency:')) {
@@ -1008,6 +1038,7 @@ function parseSettings(raw) {
 
     updateDhcpVisibility();
     renderPeerList();
+    renderWifiList();
     clearModified();
 
     // Highlight current preset
@@ -1042,18 +1073,16 @@ async function saveLora() {
 }
 
 async function saveWifi() {
-    const ssid  = document.getElementById('inp_ssid').value;
-    const pass  = document.getElementById('inp_wifipass').value;
-    const ap    = document.getElementById('inp_apmode').checked;
-    const dhcp  = document.getElementById('inp_dhcp').checked;
-    const ip    = document.getElementById('inp_ip').value.trim();
-    const nm    = document.getElementById('inp_netmask').value.trim();
-    const gw    = document.getElementById('inp_gateway').value.trim();
-    const dns   = document.getElementById('inp_dns').value.trim();
-    const ntp   = document.getElementById('inp_ntp').value.trim();
+    const ap     = document.getElementById('inp_apmode').checked;
+    const dhcp   = document.getElementById('inp_dhcp').checked;
+    const ip     = document.getElementById('inp_ip').value.trim();
+    const nm     = document.getElementById('inp_netmask').value.trim();
+    const gw     = document.getElementById('inp_gateway').value.trim();
+    const dns    = document.getElementById('inp_dns').value.trim();
+    const ntp    = document.getElementById('inp_ntp').value.trim();
+    const apname = document.getElementById('inp_apname').value.trim();
+    const appass = document.getElementById('inp_appass').value;
 
-    if (ssid)  await sendCmd('ss ' + ssid);
-    if (pass)  await sendCmd('pa ' + pass);
     await sendCmd('a '  + (ap   ? '1' : '0'));
     await sendCmd('dh ' + (dhcp ? '1' : '0'));
     if (!dhcp) {
@@ -1062,9 +1091,65 @@ async function saveWifi() {
         if (gw)  await sendCmd('g '  + gw);
         if (dns) await sendCmd('dn ' + dns);
     }
-    if (ntp) await sendCmd('ntp ' + ntp);
-    clearModifiedIn(['inp_ssid','inp_wifipass','inp_ntp','inp_ip','inp_netmask','inp_gateway','inp_dns']);
+    if (ntp)    await sendCmd('ntp ' + ntp);
+    if (apname) await sendCmd('ap name ' + apname);
+    if (appass) await sendCmd('ap pw ' + appass);
+    clearModifiedIn(['inp_ntp','inp_ip','inp_netmask','inp_gateway','inp_dns','inp_apname','inp_appass']);
     toast('WLAN-Einstellungen gespeichert', 'success');
+}
+
+// ── WiFi networks ────────────────────────────────────────────────────────────
+function renderWifiList() {
+    const list = document.getElementById('wifiList');
+    list.innerHTML = '';
+    if (wifiNets.length === 0) {
+        list.innerHTML = '<div style="font-size:13px; color:var(--muted); padding:4px 0;">Keine WLAN-Netzwerke konfiguriert.</div>';
+        return;
+    }
+    wifiNets.forEach((n, i) => {
+        const div = document.createElement('div');
+        div.className = 'peer-item';
+        div.innerHTML = `
+            <span class="peer-ip">${escapeHtml(n.ssid)}</span>
+            ${n.favorite ? '<span class="peer-badge legacy">Favorit</span>' : `<button class="btn btn-ghost btn-sm" onclick="favWifi(${i+1})">Als Favorit</button>`}
+            ${n.hasPw ? '<span class="peer-badge" style="background:#dcfce7;color:#166534;">PW</span>' : '<span class="peer-badge disabled">offen</span>'}
+            <button class="btn btn-danger btn-sm" onclick="removeWifi(${i+1})" title="Netzwerk löschen">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2.5">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                    <path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+            </button>`;
+        list.appendChild(div);
+    });
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function addWifi() {
+    const ssid = document.getElementById('inp_newWifiSsid').value.trim();
+    const pw   = document.getElementById('inp_newWifiPass').value;
+    if (!ssid) { toast('SSID fehlt', 'error'); return; }
+    const cmd = pw ? `wifi add ${ssid} ${pw}` : `wifi add ${ssid}`;
+    await sendCmd(cmd);
+    wifiNets.push({ ssid, favorite: wifiNets.length === 0, hasPw: !!pw });
+    renderWifiList();
+    document.getElementById('inp_newWifiSsid').value = '';
+    document.getElementById('inp_newWifiPass').value = '';
+    toast('Netzwerk hinzugefügt', 'success');
+}
+
+async function removeWifi(n) {
+    await sendCmd('wifi del ' + n);
+    wifiNets.splice(n - 1, 1);
+    renderWifiList();
+    toast('Netzwerk entfernt');
+}
+
+async function favWifi(n) {
+    await sendCmd('wifi fav ' + n);
+    wifiNets.forEach((w, i) => w.favorite = (i === n - 1));
+    renderWifiList();
+    toast('Favorit gesetzt', 'success');
 }
 
 async function saveUpdateChannel() {
