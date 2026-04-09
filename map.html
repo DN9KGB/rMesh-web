@@ -797,6 +797,9 @@ function renderMap(data) {
     const bounds = [];
 
     // Gruppiere nahe Nodes um Tooltip-Überlappungen zu vermeiden.
+    // Set aller Calls mit direkter Peer-Verbindung (für Stale-Filter unten)
+    const directNodes = new Set(edges.flatMap(e => [e.from, e.to]));
+
     // Runde auf ~110m Gitterzelle (3 Dezimalstellen ≈ 0.001°).
     const posGroups = {};  // "rlat,rlon" → index counter
     function posKey(lat, lon) {
@@ -897,7 +900,6 @@ function buildPopup(n) {
     }
 
     const directPeers = allEdges.filter(e => e.from === n.call || e.to === n.call);
-    const routedThrough = allRoutes.filter(r => r.reporter === n.call);
 
     const badge = n.is_afu === false
         ? '<span class="popup-badge badge-public">Public 868 MHz</span>'
@@ -909,6 +911,9 @@ function buildPopup(n) {
         html += `<div class="popup-row"><span class="popup-label">Chip-ID:</span> <span style="font-family:monospace;font-size:0.75rem;">${n.chip_id}</span></div>`;
     }
 
+    html += `<div class="popup-row"><span class="popup-label">Hardware:</span> <span style="font-family:monospace;font-size:0.75rem;">${n.hw || '---'}</span></div>`;
+    html += `<div class="popup-row"><span class="popup-label">Firmware:</span> <span style="font-family:monospace;font-size:0.75rem;">${n.fw || '---'}</span></div>`;
+
     if (n.ghost) {
         html += `<div class="popup-row"><span class="popup-label">Status:</span> <span style="color:#818cf8">Ghost-Node – nur von anderen gesehen</span></div>`;
         if (n.posInferred) {
@@ -918,7 +923,6 @@ function buildPopup(n) {
         html += `<div class="popup-row"><span class="popup-label">Position:</span> <span style="color:#f0a500">geschätzt (keine GPS-Daten)</span></div>`;
     } else if (n.position) {
         html += `<div class="popup-row"><span class="popup-label">Position:</span> ${n.position}</div>`;
-        html += `<div class="popup-row"><span class="popup-label">Koordinaten:</span> ${n.lat.toFixed(4)}, ${n.lon.toFixed(4)}</div>`;
     }
 
     html += `<div class="popup-row"><span class="popup-label">Zuletzt gesehen:</span> vor ${timeAgo(n.last_seen)}</div>`;
@@ -932,14 +936,6 @@ function buildPopup(n) {
                 RSSI ${e.rssi.toFixed(0)} dBm, SNR ${e.snr.toFixed(1)} dB,
                 ${e.port === 0 ? 'LoRa' : 'WiFi'}
             </div>`;
-        });
-        html += '</div>';
-    }
-
-    if (routedThrough.length > 0) {
-        html += `<div class="popup-peers"><div class="popup-label">Bekannte Routen (${routedThrough.length}):</div>`;
-        routedThrough.slice(0, 6).forEach(r => {
-            html += `<div class="popup-peer">&rsaquo; ${r.src} via ${r.via} (${r.hops} Hops)</div>`;
         });
         html += '</div>';
     }

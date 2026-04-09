@@ -34,10 +34,16 @@ try {
         $nodeParams[':band'] = $bandFilter;
     }
 
-    $stmt = $db->prepare("SELECT `call`, `position`, `last_seen`, `band`, `chip_id`, `is_afu`
-        FROM rmesh_nodes
-        WHERE `last_seen` >= :cutoff{$bandWhere}
-        ORDER BY `call`");
+    $stmt = $db->prepare("SELECT n.`call`, n.`position`, n.`last_seen`, n.`band`, n.`chip_id`, n.`is_afu`,
+            ota.device AS hw_model, ota.version_to AS fw_version
+        FROM rmesh_nodes n
+        LEFT JOIN rmesh_ota_log ota ON ota.id = (
+            SELECT id FROM rmesh_ota_log
+            WHERE `call` = n.`call` AND version_to IS NOT NULL AND version_to != ''
+            ORDER BY timestamp DESC LIMIT 1
+        )
+        WHERE n.`last_seen` >= :cutoff" . ($bandFilter !== null ? ' AND n.`band` = :band' : '') . "
+        ORDER BY n.`call`");
     $stmt->execute($nodeParams);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $node = array(
@@ -47,6 +53,8 @@ try {
             'band'      => $row['band'],
             'chip_id'   => $row['chip_id'],
             'is_afu'    => (bool)$row['is_afu'],
+            'hw'        => $row['hw_model'] ?? '',
+            'fw'        => $row['fw_version'] ?? '',
         );
         $pos = parsePosition($row['position']);
         if ($pos !== null) {
