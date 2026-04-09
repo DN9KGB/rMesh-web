@@ -30,6 +30,12 @@ if ($channel === 'dev') {
 
 // Dirty/nightly builds dürfen niemals per Auto-Update überschrieben werden
 $isDirty = $version !== '' && (stripos($version, 'dirty') !== false || stripos($version, 'nightly') !== false || preg_match('/-b\d+$/i', trim($version)));
+// Auf dem release-Channel niemals eine Pre-Release-/Dev-Version (Tag mit '-') auf einen
+// älteren Stable-Tag "abwärts" updaten – sonst würde z.B. v1.0.31b-dev auf v1.0.29a
+// downgegradet, sobald GitHub /releases/latest älter ist als die installierte Vorschau.
+if (!$isDirty && $channel === 'release' && $version !== '' && strpos($version, '-') !== false) {
+    $isDirty = true;
+}
 if ($isDirty) {
     $latest = $version;
 }

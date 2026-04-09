@@ -9,10 +9,11 @@ services:
       - "traefik.http.routers.rmesh.tls.certresolver=letsencrypt"
 
       - "traefik.http.services.rmesh.loadbalancer.server.port=80"
-    ports:
-      # HTTP direkt (an Traefik vorbei) für ESP32 ohne TLS
-      # Nur report.php und update.php werden genutzt
-      - "8080:80"
+    # Kein direktes Host-Port-Mapping mehr nötig:
+    # - HTTPS-Traffic kommt über Traefik (Labels oben)
+    # - ESP32-OTA (Port 8082, Plain + TLS) läuft über den ota-frontend-Service
+    expose:
+      - "80"
     environment:
       DB_HOST: db
       DB_NAME: ${DB_NAME:-rmesh}
@@ -23,6 +24,39 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - default
+      - proxy
+
+  # OTA-Frontend für Port 8082:
+  # Firmware-Updates kommen mit WiFiClientSecure (TLS) gegen http://...:8082/update.php,
+  # Versions-Checks dagegen mit Plain-HTTP gegen denselben Port. HAProxy sniff't das
+  # erste Byte (TLS ClientHello vs. Plaintext) und leitet beide Pfade an php:80 weiter.
+  ota-frontend:
+    image: haproxy:2.9-alpine
+    user: root
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./ota-frontend/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ota_certs:/certs
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        if [ ! -f /certs/ota.pem ]; then
+          apk add --no-cache openssl >/dev/null
+          openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+            -subj "/CN=www.rmesh.de" \
+            -keyout /tmp/k.pem -out /tmp/c.pem >/dev/null 2>&1
+          cat /tmp/c.pem /tmp/k.pem > /certs/ota.pem
+          chmod 600 /certs/ota.pem
+          rm -f /tmp/k.pem /tmp/c.pem
+        fi
+        exec haproxy -f /usr/local/etc/haproxy/haproxy.cfg
+    depends_on:
+      - php
+    restart: unless-stopped
 
   db:
     image: mariadb:11
@@ -32,7 +66,7 @@ services:
       MARIADB_PASSWORD: ${DB_PASS:?DB_PASS must be set}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set}
     volumes:
-      - db_data:/var/lib/mysql
+      - ./data/db:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -42,3 +76,8 @@ services:
 
 volumes:
   db_data:
+  ota_certs:
+
+networks:
+  proxy:
+    external: true
