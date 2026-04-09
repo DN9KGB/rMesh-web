@@ -14,6 +14,9 @@ services:
     # - ESP32-OTA (Port 8082, Plain + TLS) läuft über den ota-frontend-Service
     expose:
       - "80"
+    volumes:
+      # Live-Mount: Änderungen an PHP/HTML wirken sofort, kein Rebuild nötig
+      - ./web:/var/www/html
     environment:
       DB_HOST: db
       DB_NAME: ${DB_NAME:-rmesh}

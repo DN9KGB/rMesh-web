@@ -147,7 +147,40 @@
         .node-pos-stale { color: #555; }
         .node-card-stale { opacity: 0.5; }
         .node-card-stale .node-call { color: #666; }
-        .leaflet-tooltip.tooltip-stale { opacity: 0.4 !important; color: #888; }
+        .leaflet-interactive:focus { outline: none; }
+        #node-search-wrap { padding: 8px 12px; border-bottom: 1px solid #0f3460; position: relative; }
+        #node-search {
+            width: 100%; box-sizing: border-box;
+            background: #1a1a2e; color: #e6e6e6;
+            border: 1px solid #0f3460; border-radius: 4px;
+            padding: 6px 8px; font-size: 0.85rem; font-family: inherit;
+        }
+        #node-search:focus { outline: none; border-color: #4ecca3; }
+        #node-search-results {
+            position: absolute; left: 12px; right: 12px; top: 100%;
+            background: #1a1a2e; border: 1px solid #0f3460; border-top: none;
+            max-height: 240px; overflow-y: auto; z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        #node-search-results .search-hit {
+            padding: 6px 10px; cursor: pointer; font-size: 0.85rem;
+            border-bottom: 1px solid #0f3460;
+        }
+        #node-search-results .search-hit:last-child { border-bottom: none; }
+        #node-search-results .search-hit:hover,
+        #node-search-results .search-hit.active { background: #0f3460; color: #4ecca3; }
+        #node-search-results .search-hit-meta { color: #888; font-size: 0.7rem; margin-left: 6px; }
+        .leaflet-tooltip {
+            background: #1a1a2e;
+            color: #e6e6e6;
+            border: 1px solid #0f3460;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+        }
+        .leaflet-tooltip-top::before    { border-top-color: #1a1a2e; }
+        .leaflet-tooltip-bottom::before { border-bottom-color: #1a1a2e; }
+        .leaflet-tooltip-left::before   { border-left-color: #1a1a2e; }
+        .leaflet-tooltip-right::before  { border-right-color: #1a1a2e; }
+        .leaflet-tooltip.tooltip-stale { opacity: 0.5 !important; color: #888; }
 
         #legend {
             padding: 10px 12px;
@@ -315,6 +348,10 @@
 
     <div id="sidebar">
         <h2 id="sidebar-title">433 MHz &ndash; Amateurfunk</h2>
+        <div id="node-search-wrap">
+            <input id="node-search" type="search" placeholder="Node suchen…" autocomplete="off" />
+            <div id="node-search-results"></div>
+        </div>
         <div id="sidebar-scroll">
             <div id="node-list"></div>
         </div>
@@ -336,6 +373,9 @@
 <button id="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Node-Liste anzeigen">☰</button>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
 // ── Karte initialisieren ──────────────────────────────────────────────────────
 const map = L.map('map', {
@@ -349,10 +389,35 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19
 }).addTo(map);
 
+// Ab diesem Zoom werden Node-Labels permanent angezeigt; darunter nur on hover.
+const LABEL_ZOOM_THRESHOLD = 12;
+
 // ── Layer-Gruppen ─────────────────────────────────────────────────────────────
 const edgeLayer   = L.layerGroup().addTo(map);
 const routeLayer  = L.layerGroup().addTo(map);
-const markerLayer = L.layerGroup().addTo(map);
+const markerLayer = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: LABEL_ZOOM_THRESHOLD,
+    maxClusterRadius: 50,
+}).addTo(map);
+
+map.on('zoomend', () => {
+    const permanent = map.getZoom() >= LABEL_ZOOM_THRESHOLD;
+    Object.values(markers).forEach(m => {
+        const tt = m.getTooltip();
+        if (!tt) return;
+        if (tt.options.permanent === permanent) return;
+        const fan = m._fan || { direction: 'top', offset: [0, -10] };
+        m.unbindTooltip();
+        m.bindTooltip(m.options.title || tt.getContent(), {
+            permanent,
+            direction: permanent ? fan.direction : 'top',
+            offset:    permanent ? fan.offset    : [0, -10],
+            className: m._stale ? 'tooltip-stale' : ''
+        });
+    });
+});
 
 // ── Band-State ────────────────────────────────────────────────────────────────
 let currentBand = '433';
@@ -787,8 +852,9 @@ function renderMap(data) {
         }, edgeLayer)
          .bindTooltip(
             `${e.from} ↔ ${e.to}<br>` +
-            `RSSI: ${e.rssi.toFixed(1)} dBm &nbsp;|&nbsp; SNR: ${e.snr.toFixed(1)} dB<br>` +
-            `${e.port === 0 ? 'LoRa' : 'WiFi/UDP'}`,
+            (e.port === 0
+                ? `RSSI: ${e.rssi.toFixed(1)} dBm &nbsp;|&nbsp; SNR: ${e.snr.toFixed(1)} dB<br>LoRa`
+                : 'WiFi/UDP'),
             {sticky: true}
          );
     });
@@ -855,12 +921,16 @@ function renderMap(data) {
             .addTo(markerLayer)
             .bindPopup(() => buildPopup(n), { minWidth: 180 });
 
+        // Labels: ab Zoom >= LABEL_ZOOM_THRESHOLD permanent, darunter nur on hover
+        const labelPermanent = map.getZoom() >= LABEL_ZOOM_THRESHOLD;
         marker.bindTooltip(n.call, {
-            permanent: true,
-            direction: fan.direction,
-            offset: fan.offset,
+            permanent: labelPermanent,
+            direction: labelPermanent ? fan.direction : 'top',
+            offset:    labelPermanent ? fan.offset    : [0, -10],
             className: stale ? 'tooltip-stale' : ''
         });
+        marker._fan = fan;
+        marker._stale = stale;
         markers[n.call] = marker;
         bounds.push([n.lat, n.lon]);
     });
@@ -931,11 +1001,13 @@ function buildPopup(n) {
         html += `<div class="popup-peers"><div class="popup-label">Direkte Peers (${directPeers.length}):</div>`;
         directPeers.slice(0, 8).forEach(e => {
             const peer = e.from === n.call ? e.to : e.from;
-            html += `<div class="popup-peer">
-                &rsaquo; ${peer} &nbsp;
-                RSSI ${e.rssi.toFixed(0)} dBm, SNR ${e.snr.toFixed(1)} dB,
-                ${e.port === 0 ? 'LoRa' : 'WiFi'}
-            </div>`;
+            const link = e.port === 0
+                ? `LoRa &nbsp; RSSI ${e.rssi.toFixed(0)} dBm, SNR ${e.snr.toFixed(1)} dB`
+                : 'WiFi';
+            const clickable = markers[peer]
+                ? `<a href="#" onclick="focusNode('${peer}');return false;" style="color:#4ecca3;text-decoration:none;">${peer}</a>`
+                : peer;
+            html += `<div class="popup-peer">&rsaquo; ${clickable} &nbsp; ${link}</div>`;
         });
         html += '</div>';
     }
@@ -976,14 +1048,72 @@ function focusNode(call) {
     document.getElementById('sidebar').classList.remove('mobile-open');
     const m = markers[call];
     if (m) {
-        map.setView(m.getLatLng(), Math.max(map.getZoom(), 10));
-        m.openPopup();
+        // Falls die Node noch in einem Cluster steckt, zuerst dorthin zoomen/spiderfyen
+        if (markerLayer.zoomToShowLayer) {
+            markerLayer.zoomToShowLayer(m, () => {
+                map.setView(m.getLatLng(), Math.max(map.getZoom(), 10));
+                m.openPopup();
+            });
+        } else {
+            map.setView(m.getLatLng(), Math.max(map.getZoom(), 10));
+            m.openPopup();
+        }
     } else {
         // Node ohne Position: Popup aus der Sidebar heraus anzeigen
         const n = allNodes[call];
         if (n) alert(`${call}\nKeine Position bekannt.\nZuletzt gesehen: vor ${timeAgo(n.last_seen)}`);
     }
 }
+
+// ── Node-Suche ────────────────────────────────────────────────────────────────
+(function setupSearch() {
+    const input    = document.getElementById('node-search');
+    const resBox   = document.getElementById('node-search-results');
+    let   activeIx = -1;
+    let   currentHits = [];
+
+    function render(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) { resBox.innerHTML = ''; currentHits = []; activeIx = -1; return; }
+        currentHits = Object.values(allNodes)
+            .filter(n => !n.virtual && n.call && n.call.toLowerCase().includes(q))
+            .sort((a, b) => a.call.localeCompare(b.call))
+            .slice(0, 20);
+        if (currentHits.length === 0) {
+            resBox.innerHTML = '<div class="search-hit" style="color:#888;cursor:default;">Keine Treffer</div>';
+            return;
+        }
+        resBox.innerHTML = currentHits.map((n, i) => {
+            const meta = n.lat !== undefined ? '' : ' <span class="search-hit-meta">(keine Position)</span>';
+            return `<div class="search-hit${i === activeIx ? ' active' : ''}" data-call="${n.call}">${n.call}${meta}</div>`;
+        }).join('');
+    }
+
+    function pick(call) {
+        if (!call) return;
+        input.value = '';
+        resBox.innerHTML = '';
+        currentHits = [];
+        activeIx = -1;
+        focusNode(call);
+    }
+
+    input.addEventListener('input',  () => { activeIx = -1; render(input.value); });
+    input.addEventListener('focus',  () => render(input.value));
+    input.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); activeIx = Math.min(activeIx + 1, currentHits.length - 1); render(input.value); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); activeIx = Math.max(activeIx - 1, 0); render(input.value); }
+        else if (e.key === 'Enter') { e.preventDefault(); pick((currentHits[activeIx >= 0 ? activeIx : 0] || {}).call); }
+        else if (e.key === 'Escape') { input.value = ''; resBox.innerHTML = ''; }
+    });
+    resBox.addEventListener('mousedown', e => {
+        const hit = e.target.closest('.search-hit');
+        if (hit && hit.dataset.call) { e.preventDefault(); pick(hit.dataset.call); }
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#node-search-wrap')) resBox.innerHTML = '';
+    });
+})();
 
 // ── Daten laden ───────────────────────────────────────────────────────────────
 function loadData() {
