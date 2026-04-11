@@ -35,7 +35,8 @@ try {
     }
 
     $stmt = $db->prepare("SELECT n.`call`, n.`position`, n.`last_seen`, n.`band`, n.`chip_id`, n.`is_afu`,
-            ota.device AS hw_model, ota.version_to AS fw_version
+            COALESCE(NULLIF(n.`device`, ''), ota.device) AS hw_model,
+            COALESCE(NULLIF(n.`version`, ''), ota.version_to) AS fw_version
         FROM rmesh_nodes n
         LEFT JOIN rmesh_ota_log ota ON ota.id = (
             SELECT id FROM rmesh_ota_log

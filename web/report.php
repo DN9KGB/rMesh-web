@@ -11,6 +11,8 @@
  *   "band":      "433",           // "433" oder "868"
  *   "position":  "JN48mw",
  *   "timestamp": 1710000000,
+ *   "version":  "v1.0.31b",       // Firmware-Version (optional, ab v27+)
+ *   "device":   "LILYGO_T-ETH-Elite_SX1262", // Board-Typ (optional, ab v27+)
  *   "peers": [
  *     {"call": "OE3XYZ", "rssi": -85.0, "snr": 5.2, "port": 0, "available": true}
  *   ],
@@ -67,6 +69,8 @@ if (empty($call)) {
 $chip_id   = isset($data['chip_id'])   ? strtoupper(substr(preg_replace('/[^A-Fa-f0-9]/', '', $data['chip_id']), 0, 20)) : '';
 $position  = isset($data['position'])  ? substr($data['position'], 0, 23) : '';
 $timestamp = isset($data['timestamp']) ? (int)$data['timestamp'] : time();
+$version   = isset($data['version'])  ? substr($data['version'], 0, 32) : '';
+$device    = isset($data['device'])   ? substr(preg_replace('/[^A-Za-z0-9_\-]/', '', $data['device']), 0, 48) : '';
 $peers     = isset($data['peers'])     ? $data['peers']  : array();
 $routes    = isset($data['routes'])    ? $data['routes'] : array();
 
@@ -91,7 +95,9 @@ try {
     $db->exec("ALTER TABLE rmesh_nodes
         ADD COLUMN IF NOT EXISTS `band`    ENUM('433','868') NOT NULL DEFAULT '433',
         ADD COLUMN IF NOT EXISTS `chip_id` VARCHAR(20)       NOT NULL DEFAULT '',
-        ADD COLUMN IF NOT EXISTS `is_afu`  TINYINT(1)        NOT NULL DEFAULT 1");
+        ADD COLUMN IF NOT EXISTS `is_afu`  TINYINT(1)        NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS `version` VARCHAR(32)       NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS `device`  VARCHAR(48)       NOT NULL DEFAULT ''");
 
     $db->exec("CREATE TABLE IF NOT EXISTS rmesh_peers (
         `reporter_call` VARCHAR(16)   NOT NULL,
@@ -116,14 +122,16 @@ try {
     $db->beginTransaction();
 
     // Node eintragen / aktualisieren
-    $stmt = $db->prepare("INSERT INTO rmesh_nodes (`call`, `position`, `last_seen`, `band`, `chip_id`, `is_afu`)
-        VALUES (:call, :pos, :ts, :band, :chip_id, :is_afu)
+    $stmt = $db->prepare("INSERT INTO rmesh_nodes (`call`, `position`, `last_seen`, `band`, `chip_id`, `is_afu`, `version`, `device`)
+        VALUES (:call, :pos, :ts, :band, :chip_id, :is_afu, :version, :device)
         ON DUPLICATE KEY UPDATE
             `position`  = VALUES(`position`),
             `last_seen` = VALUES(`last_seen`),
             `band`      = VALUES(`band`),
             `chip_id`   = VALUES(`chip_id`),
-            `is_afu`    = VALUES(`is_afu`)");
+            `is_afu`    = VALUES(`is_afu`),
+            `version`   = IF(VALUES(`version`) != '', VALUES(`version`), `version`),
+            `device`    = IF(VALUES(`device`)  != '', VALUES(`device`),  `device`)");
     $stmt->execute(array(
         ':call'    => $call,
         ':pos'     => $position,
@@ -131,6 +139,8 @@ try {
         ':band'    => $band,
         ':chip_id' => $chip_id,
         ':is_afu'  => (int)$is_afu,
+        ':version' => $version,
+        ':device'  => $device,
     ));
 
     // Peers: alle als nicht verfügbar markieren, dann gemeldete eintragen
