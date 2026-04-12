@@ -7,14 +7,14 @@
 $file   = $_GET['file']   ?? '';
 $call   = isset($_GET['call'])   ? strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($_GET['call'])), 0, 16)) : '';
 $device = isset($_GET['device']) ? substr($_GET['device'], 0, 64) : '';
-$tag    = isset($_GET['tag'])    ? substr($_GET['tag'], 0, 64) : '';
+$tag    = isset($_GET['tag'])    ? str_replace(' ', '+', substr($_GET['tag'], 0, 64)) : '';
 
 // Strikte Allowlist
 if (!preg_match('/^[a-zA-Z0-9_\-]+\.bin$/', $file)) {
     http_response_code(400);
     exit('Invalid file');
 }
-if ($tag !== '' && !preg_match('/^([Vv]\d+\.\d+\.\d+[a-zA-Z0-9\-]*|nightly-\d{4}-\d{2}-\d{2})$/', $tag)) {
+if ($tag !== '' && !preg_match('/^([Vv]\d+\.\d+\.\d+[a-zA-Z0-9\-]*(\+[a-zA-Z0-9\.\-]+)?|nightly-\d{4}-\d{2}-\d{2})$/', $tag)) {
     http_response_code(400);
     exit('Invalid tag');
 }

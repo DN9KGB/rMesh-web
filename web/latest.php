@@ -1,7 +1,7 @@
 <?php
 $call    = isset($_GET['call'])    ? strtoupper(substr(preg_replace('/[^A-Z0-9\/\-]/', '', strtoupper($_GET['call'])), 0, 16)) : '';
 $device  = isset($_GET['device'])  ? substr($_GET['device'],  0, 64) : '';
-$version = isset($_GET['version']) ? substr($_GET['version'], 0, 32) : '';
+$version = isset($_GET['version']) ? str_replace(' ', '+', substr($_GET['version'], 0, 96)) : '';
 $channel = isset($_GET['channel']) && $_GET['channel'] === 'dev' ? 'dev' : 'release';
 
 $ctx = stream_context_create(['http' => [
@@ -28,15 +28,10 @@ if ($channel === 'dev') {
     $latest = $json ? json_decode($json)->tag_name : '';
 }
 
-// Dirty/nightly builds dürfen niemals per Auto-Update überschrieben werden
-$isDirty = $version !== '' && (stripos($version, 'dirty') !== false || stripos($version, 'nightly') !== false || preg_match('/-b\d+$/i', trim($version)));
 // Auf dem release-Channel niemals eine Pre-Release-/Dev-Version (Tag mit '-') auf einen
 // älteren Stable-Tag "abwärts" updaten – sonst würde z.B. v1.0.31b-dev auf v1.0.29a
 // downgegradet, sobald GitHub /releases/latest älter ist als die installierte Vorschau.
-if (!$isDirty && $channel === 'release' && $version !== '' && strpos($version, '-') !== false) {
-    $isDirty = true;
-}
-if ($isDirty) {
+if ($channel === 'release' && $version !== '' && strpos($version, '-') !== false) {
     $latest = $version;
 }
 
